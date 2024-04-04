@@ -1,0 +1,21 @@
+g++ opencv-omp-basic.cpp -fopenmp `pkg-config opencv4 --cflags` -c
+g++ opencv-omp-basic.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o opencv-omp-basic
+
+g++ opencv-omp-basic-color.cpp -fopenmp `pkg-config opencv4 --cflags` -c
+g++ opencv-omp-basic-color.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o opencv-omp-basic-color
+
+g++ 2.1_anaglyphs-omp.cpp -fopenmp `pkg-config opencv4 --cflags` -c
+g++ 2.1_anaglyphs-omp.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o 2.1_anaglyphs-omp
+./2.1_anaglyphs-omp garden-stereo.jpg 0
+
+g++ 2.1_anaglyphs-cuda.cpp -fopenmp `pkg-config opencv4 --cflags` -c
+g++ 2.1_anaglyphs-cuda.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o 2.1_anaglyphs-cuda
+./2.1_anaglyphs-cuda garden-stereo.jpg 0
+
+g++ opencv-omp-basic-2.cpp -fopenmp `pkg-config opencv4 --cflags` -c
+g++ opencv-omp-basic-2.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o opencv-omp-basic-2
+
+g++ opencv-omp-histogram.cpp -fopenmp `pkg-config opencv4 --cflags` -c
+g++ opencv-omp-histogram.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o opencv-omp-histogram
+
+
