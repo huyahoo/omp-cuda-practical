@@ -16,11 +16,56 @@ enum AnaglyphType {
     OPTIMIZED
 };
 
-// Function to apply Gaussian blur to an image
-cv::Mat applyGaussianBlur(const cv::Mat& image, int kernelSize, double sigma) {
+//Function to apply Gaussian blur to an image
+cv::Mat applyGaussianBlurBuildIn(const cv::Mat& image, int kernelSize, double sigma) {
     cv::Mat blurredImage;
     cv::GaussianBlur(image, blurredImage, cv::Size(kernelSize, kernelSize), sigma, sigma);
     return blurredImage;
+}
+
+cv::Mat applyGaussianBlur(const cv::Mat& src, int kernelSize, double sigma) {
+    cv::Mat dst(src.size(), CV_8UC3);
+
+    int halfKernelSize = kernelSize / 2;
+    const double PI = 3.14159265358979323846;
+
+    // Pre-calculate constants
+    double lp = 1.0 / (2.0 * PI * sigma * sigma);
+    double rp = 1.0 / (2.0 * sigma * sigma);
+    double gaussKernel[kernelSize][kernelSize];
+
+    // Generate Gaussian kernel
+    #pragma omp parallel for
+    for (int i = -halfKernelSize; i <= halfKernelSize; ++i) {
+        for (int j = -halfKernelSize; j <= halfKernelSize; ++j) {
+            double gaussianVal = lp * exp(-(i * i + j * j) * rp);
+            gaussKernel[i + halfKernelSize][j + halfKernelSize] = gaussianVal;
+        }
+    }
+
+    // Apply Gaussian blur
+    #pragma omp parallel for
+    for (int y = 0; y < src.rows; ++y) {
+        for (int x = 0; x < src.cols; ++x) {
+            cv::Vec3d sum = cv::Vec3d(0.0, 0.0, 0.0);
+            double gaussianTotal = 0.0;
+
+            for (int i = -halfKernelSize; i <= halfKernelSize; ++i) {
+                for (int j = -halfKernelSize; j <= halfKernelSize; ++j) {
+                    if (y + i >= 0 && y + i < src.rows && x + j >= 0 && x + j < src.cols) {
+                        double gaussianVal = gaussKernel[i + halfKernelSize][j + halfKernelSize];
+                        gaussianTotal += gaussianVal;
+                        cv::Vec3b pixel = src.at<cv::Vec3b>(y + i, x + j);
+                        sum += cv::Vec3d(pixel[0], pixel[1], pixel[2]) * gaussianVal;
+                    }
+                }
+            }
+            sum /= gaussianTotal;
+            dst.at<cv::Vec3b>(y, x) = cv::Vec3b(sum[0], sum[1], sum[2]);
+        }
+    }
+
+    return dst;
 }
 
 int main( int argc, char** argv )
@@ -57,18 +102,24 @@ int main( int argc, char** argv )
     cv::Mat left_image(stereo_image, cv::Rect(0, 0, stereo_image.cols / 2, stereo_image.rows));
     cv::Mat right_image(stereo_image, cv::Rect(stereo_image.cols / 2, 0, stereo_image.cols / 2, stereo_image.rows));
 
+    // Display the left and right images
+    cv::imshow("Left Image", left_image);
+    // cv::imshow("Right Image", right_image);
+
     int kernelSize = atoi(argv[3]);
     double sigma = atof(argv[4]);
 
+
     // Apply Gaussian blur to left and right images
     if (kernelSize && sigma) {
+        // By Built-in function
+        // left_image = applyGaussianBlurBuildIn(left_image, kernelSize, sigma);
+        // right_image = applyGaussianBlurBuildIn(right_image, kernelSize, sigma);
+
+        // By Custom function
         left_image = applyGaussianBlur(left_image, kernelSize, sigma);
         right_image = applyGaussianBlur(right_image, kernelSize, sigma);
     }
-
-    // Display the left and right images
-    // cv::imshow("Left Image", left_image);
-    // cv::imshow("Right Image", right_image);
 
     // Create an empty anaglyph image with the same size as the left and right images
     cv::Mat anaglyph_image(left_image.size(), CV_8UC3);
