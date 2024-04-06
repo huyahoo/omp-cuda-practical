@@ -101,10 +101,6 @@ int main( int argc, char** argv )
     cv::Mat left_image(stereo_image, cv::Rect(0, 0, stereo_image.cols / 2, stereo_image.rows));
     cv::Mat right_image(stereo_image, cv::Rect(stereo_image.cols / 2, 0, stereo_image.cols / 2, stereo_image.rows));
 
-    // Display the left and right images
-    cv::imshow("Left Image", left_image);
-    // cv::imshow("Right Image", right_image);
-
     int kernelSize = atoi(argv[3]);
     double sigma = atof(argv[4]);
 
@@ -193,7 +189,7 @@ int main( int argc, char** argv )
                         );
                         break;
                     default:
-                        anaglyph_name = "Normal";
+                        anaglyph_name = "None";
                         anaglyph_image.at<cv::Vec3b>(i, j) = left_image.at<cv::Vec3b>(i, j);
                 }
             }
@@ -206,12 +202,18 @@ int main( int argc, char** argv )
     // Calculate the time difference
     std::chrono::duration<double> diff = end - begin;
 
-    // Display the anaglyph image
-    cv::imshow(anaglyph_name + " Anaglyph Image", anaglyph_image);
+    cv::Mat gaussianBlurBuildInImage = applyGaussianBlurBuildIn(left_image, kernelSize, sigma);
+
+    // Display the original images
+    cv::imshow("Input Image", stereo_image);
+
+    // Display the output image
+    cv::imshow("Gaussian +" + anaglyph_name + " Anaglyph Image", anaglyph_image);
+    cv::imshow("Gaussian Blur By Build-in Function Image", gaussianBlurBuildInImage);
 
     // Save the anaglyph image
-    // std::string filename =  "output/open-omp/" + anaglyph_name + "Anaglyph.jpg";
-    // cv::imwrite(filename, anaglyph_image);
+    std::string filename =  "output/2.1.2/" + anaglyph_name + "Anaglyph-blurred.jpg";
+    cv::imwrite(filename, anaglyph_image);
 
     // Display performance metrics
     cout << "Total time: " << diff.count() << " s" << endl;

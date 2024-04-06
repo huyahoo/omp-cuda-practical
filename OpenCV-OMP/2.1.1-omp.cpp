@@ -8,7 +8,8 @@
 using namespace std;
 
 enum AnaglyphType {
-    TRUE = 0,
+    NORMAL = 0,
+    TRUE,
     GRAY,
     COLOR,
     HALFCOLOR,
@@ -34,14 +35,15 @@ int main( int argc, char** argv )
         return -1;
     }
 
-    if (anaglyph_type < TRUE || anaglyph_type > OPTIMIZED) {
+    if (anaglyph_type < NORMAL || anaglyph_type > OPTIMIZED) {
         cerr << "Error: Invalid anaglyph type." << endl;
         cerr << "Anaglyph types:" << endl;
-        cerr << "0: True Anaglyphs" << endl;
-        cerr << "1: Gray Anaglyphs" << endl;
-        cerr << "2: Color Anaglyphs" << endl;
-        cerr << "3: Half Color Anaglyphs" << endl;
-        cerr << "4: Optimized Anaglyphs" << endl;
+        cerr << "0: None Anaglyphs" << endl;
+        cerr << "1: True Anaglyphs" << endl;
+        cerr << "2: Gray Anaglyphs" << endl;
+        cerr << "3: Color Anaglyphs" << endl;
+        cerr << "4: Half Color Anaglyphs" << endl;
+        cerr << "5: Optimized Anaglyphs" << endl;
         return -1;
     }
 
@@ -118,10 +120,8 @@ int main( int argc, char** argv )
                         );
                         break;
                     default:
-                        #pragma omp critical
-                        {
-                            cerr << "Error: Invalid anaglyph type." << endl;
-                        }
+                        anaglyph_name = "None";
+                        anaglyph_image.at<cv::Vec3b>(i, j) = left_image.at<cv::Vec3b>(i, j);
                 }
             }
         }
@@ -136,11 +136,11 @@ int main( int argc, char** argv )
     // Display the anaglyph image
     cv::imshow(anaglyph_name + " Anaglyph Image", anaglyph_image);
 
-    // Display the left and right images
+    // Display the original images
     cv::imshow("Input Image", stereo_image);
 
     // Save the anaglyph image
-    std::string filename =  "output/2.1/" + anaglyph_name + "Anaglyph.jpg";
+    std::string filename =  "output/2.1.1/" + anaglyph_name + "Anaglyph.jpg";
     cv::imwrite(filename, anaglyph_image);
 
     // Display performance metrics
