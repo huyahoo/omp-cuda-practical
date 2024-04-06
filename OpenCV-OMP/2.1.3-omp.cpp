@@ -67,6 +67,50 @@ cv::Mat applyGaussianBlur(const cv::Mat& src, int kernelSize, double sigma) {
     return dst;
 }
 
+cv::Mat calculateCovarianceMatrix(const cv::Mat& image, int x, int y, int neighborhoodSize) {
+    int halfSize = neighborhoodSize / 2;
+    int xStart = std::max(0, x - halfSize);
+    int yStart = std::max(0, y - halfSize);
+    int xEnd = std::min(image.cols, x + halfSize);
+    int yEnd = std::min(image.rows, y + halfSize);
+
+    cv::Mat neighborhood = image(cv::Rect(xStart, yStart, xEnd - xStart, yEnd - yStart)).clone();
+    cv::Mat reshapedNeighborhood = neighborhood.reshape(1, neighborhood.total());
+
+    cv::Mat mean, covariance;
+    cv::calcCovarMatrix(reshapedNeighborhood, covariance, mean, cv::COVAR_NORMAL | cv::COVAR_ROWS | cv::COVAR_SCALE);
+    return covariance;
+}
+
+cv::Mat denoiseByCovariance(const cv::Mat& src, int neighborhoodSize, double factorRatio) {
+    cv::Mat dst(src.size(), src.type());
+
+    #pragma omp parallel for
+    for (int y = 0; y < src.rows; ++y) {
+        for (int x = 0; x < src.cols; ++x) {
+            cv::Mat covariance = calculateCovarianceMatrix(src, x, y, neighborhoodSize);
+            double determinant = cv::determinant(covariance);
+
+            int kernelSize;
+            if (determinant != 0) {
+                kernelSize = static_cast<int>(std::round(factorRatio / determinant));
+                kernelSize = kernelSize % 2 == 0 ? kernelSize + 1 : kernelSize;
+            } else {
+                kernelSize = neighborhoodSize;
+            }
+
+            // GaussianBlur kernel size should be positive and odd
+            kernelSize = std::max(1, kernelSize);
+            kernelSize |= 1; // Ensure it's odd
+
+            cv::GaussianBlur(src(cv::Rect(x, y, 1, 1)), dst(cv::Rect(x, y, 1, 1)), cv::Size(kernelSize, kernelSize), 0, 0);
+
+        }
+    }
+
+    return dst;
+}
+
 int main( int argc, char** argv )
 {
     if (argc < 5) {
@@ -102,32 +146,39 @@ int main( int argc, char** argv )
     cv::Mat right_image(stereo_image, cv::Rect(stereo_image.cols / 2, 0, stereo_image.cols / 2, stereo_image.rows));
 
     // Display the left and right images
-    cv::imshow("Left Image", left_image);
+    // cv::imshow("Left Image", left_image);
     // cv::imshow("Right Image", right_image);
+
+    // Set parameters
+    int neighborhoodSize = 5; // Neighborhood size for covariance matrix
+    double factorRatio = 1; // Factor ratio applied to determine the Gaussian kernel size
+
+    // Apply denoising
+    cv::Mat denoisedImage = denoiseByCovariance(stereo_image, neighborhoodSize, factorRatio);
+
+    // Display the original and denoised images
+    cv::imshow("Original Image", stereo_image);
+    cv::imshow("Denoised Image", denoisedImage);
+
 
     int kernelSize = atoi(argv[3]);
     double sigma = atof(argv[4]);
 
-    if (kernelSize.empty() || sigma) {
-        cerr << "Error: Unable to load image." << endl;
-        return -1;
-    }
-
     // Apply Gaussian blur to left and right images
-    if (kernelSize && sigma) {
-        // By Built-in function
-        // left_image = applyGaussianBlurBuildIn(left_image, kernelSize, sigma);
-        // right_image = applyGaussianBlurBuildIn(right_image, kernelSize, sigma);
+    // if (kernelSize && sigma) {
+    //     // By Built-in function
+    //     // left_image = applyGaussianBlurBuildIn(left_image, kernelSize, sigma);
+    //     // right_image = applyGaussianBlurBuildIn(right_image, kernelSize, sigma);
 
-        // By Custom function
-        left_image = applyGaussianBlur(left_image, kernelSize, sigma);
-        right_image = applyGaussianBlur(right_image, kernelSize, sigma);
-    } else {
-        cerr << "Error: Invalid kernel size or sigma." << endl;
-        cerr << "Input kernel size in range odd numbers from 3 to 21" << endl;
-        cerr << "Input sigma in range odd numbers from 0.1 to 10" << endl;
-        return -1;
-    }
+    //     // By Custom function
+    //     left_image = applyGaussianBlur(left_image, kernelSize, sigma);
+    //     right_image = applyGaussianBlur(right_image, kernelSize, sigma);
+    // } else {
+    //     cerr << "Error: Invalid kernel size or sigma." << endl;
+    //     cerr << "Input kernel size in range odd numbers from 3 to 21" << endl;
+    //     cerr << "Input sigma in range odd numbers from 0.1 to 10" << endl;
+    //     return -1;
+    // }
 
     // Create an empty anaglyph image with the same size as the left and right images
     cv::Mat anaglyph_image(left_image.size(), CV_8UC3);
