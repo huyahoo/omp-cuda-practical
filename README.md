@@ -1,26 +1,65 @@
 # practical-work-2
 
-## Exercise 2.1.1
-### OMP
+## OMP
+The results will be saved in the folder named as "output".
+
+Move to main directory:
+```bash
+cd OpenCV-OMP
+```
+
+### Exercise 2.1.1
 
 The program requires two arguments to run correctly. The first argument is the path to the stereo image, and the second argument is the type of anaglyph to generate. The anaglyph type should be an integer between 0 and 4, each representing a different type of anaglyph.
 
 The anaglyph types are as follows:
-0: True Anaglyphs
-1: Gray Anaglyphs
-2: Color Anaglyphs
-3: Half Color Anaglyphs
-4: Optimized Anaglyphs
+- O: None Anaglyphs (Default)
+- 1: True Anaglyphs
+- 2: Gray Anaglyphs
+- 3: Color Anaglyphs
+- 4: Half Color Anaglyphs
+- 5: Optimized Anaglyphs
 
-Here is the usage:
+Usage:
 ```bash
 ./2.1.1-omp <image_path> <anaglyph_type>
 ```
 
 Example:
 ```bash
-cd Open-OMP
 g++ 2.1.1-omp.cpp -fopenmp `pkg-config opencv4 --cflags` -c
 g++ 2.1.1-omp.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o 2.1.1-omp
 ./2.1.1-omp stereo.jpg 2
+```
+
+### Exercise 2.1.2
+
+- Anaglyph type is 0 as default
+- Input kernel size in range odd numbers from 3 to 21
+- Input sigma in range odd numbers from 0.1 to 10
+  
+Usage:
+```bash
+./2.1.1-omp <image_path> <anaglyph_type> <kernel_size> <sigma>
+```
+
+Example:
+```bash
+g++ 2.1.2-omp.cpp -fopenmp `pkg-config opencv4 --cflags` -c
+g++ 2.1.2-omp.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o 2.1.2-omp
+./2.1.2-omp garden-stereo.jpg 0 7 5
+```
+
+### Exercise 2.1.3
+  
+Usage:
+```bash
+./2.1.1-omp <image_path> <neighborhood_size> <factor_ratio>
+```
+
+Example:
+```bash
+g++ 2.1.3-omp.cpp -fopenmp `pkg-config opencv4 --cflags` -c
+g++ 2.1.3-omp.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o 2.1.3-omp
+./2.1.3-omp noise.png 0 7 5
 ```
