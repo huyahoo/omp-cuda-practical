@@ -51,7 +51,7 @@ g++ 2.1.2-omp.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o 2.1.2-omp
 ```
 
 ### Exercise 2.1.3
-  
+
 Usage:
 ```bash
 ./2.1.1-omp <image_path> <neighborhood_size> <factor_ratio>
@@ -61,5 +61,5 @@ Example:
 ```bash
 g++ 2.1.3-omp.cpp -fopenmp `pkg-config opencv4 --cflags` -c
 g++ 2.1.3-omp.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o 2.1.3-omp
-./2.1.3-omp noise.png 0 7 5
+./2.1.3-omp noise.png 0 5 1
 ```
