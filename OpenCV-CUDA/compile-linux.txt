@@ -9,3 +9,8 @@
 /usr/local/cuda-11.6/bin/nvcc addvector.cu -o addvector
 
 /usr/local/cuda-11.6/bin/nvcc transpose.cu -o transpose
+
+Ex 2.1.1
+/usr/local/cuda-11.6/bin/nvcc -O3 2.1.1-cuda.cu `pkg-config opencv4 --cflags --libs` -o 2.1.1-cuda
+./2.1.1-cuda garden-stereo.jpg 0
+
