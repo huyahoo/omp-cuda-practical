@@ -15,6 +15,34 @@ enum AnaglyphType {
     OPTIMIZED
 };
 
+// Function to generate a 2D Gaussian kernel
+cv::Mat generateGaussianKernel(int kernel_size, double sigma) {
+    cv::Mat kernel(kernel_size, kernel_size, CV_64F);
+
+    double sum = 0.0;
+    int half_kernel = kernel_size / 2;
+
+    for (int x = -half_kernel; x <= half_kernel; x++) {
+        for (int y = -half_kernel; y <= half_kernel; y++) {
+            double value = exp(-(x * x + y * y) / (2 * sigma * sigma)) / (2 * M_PI * sigma * sigma);
+            kernel.at<double>(x + half_kernel, y + half_kernel) = value;
+            sum += value;
+        }
+    }
+
+    // Normalize the kernel
+    kernel /= sum;
+
+    return kernel;
+}
+
+// Function to apply Gaussian filter to an image
+cv::Mat applyGaussianFilter(const cv::Mat& input_image, const cv::Mat& kernel) {
+    cv::Mat filtered_image;
+    cv::filter2D(input_image, filtered_image, -1, kernel, cv::Point(-1, -1), 0, cv::BORDER_REPLICATE);
+    return filtered_image;
+}
+
 int main( int argc, char** argv )
 {
     if (argc < 3) {
@@ -79,45 +107,45 @@ int main( int argc, char** argv )
                         // True Anaglyphs
                         anaglyph_name = "True";
                         anaglyph_image.at<cv::Vec3b>(i, j) = cv::Vec3b(
-                            0.299 * left_pixel[2] + 0.578 * left_pixel[1] + 0.114 * left_pixel[0],
+                            0.299 * right_pixel[2] + 0.578 * right_pixel[1] + 0.114 * right_pixel[0],
                             0,
-                            0.299 * right_pixel[2] + 0.578 * right_pixel[1] + 0.114 * right_pixel[0]
+                            0.299 * left_pixel[2] + 0.578 * left_pixel[1] + 0.114 * left_pixel[0]
                         );
                         break;
                     case GRAY:
                         // Gray Anaglyphs
                         anaglyph_name = "Gray";
                         anaglyph_image.at<cv::Vec3b>(i, j) = cv::Vec3b(
-                            0.299 * left_pixel[2] + 0.578 * left_pixel[1] + 0.114 * left_pixel[0],
                             0.299 * right_pixel[2] + 0.578 * right_pixel[1] + 0.114 * right_pixel[0],
-                            0.299 * right_pixel[2] + 0.578 * right_pixel[1] + 0.114 * right_pixel[0]
+                            0.299 * right_pixel[2] + 0.578 * right_pixel[1] + 0.114 * right_pixel[0],
+                            0.299 * left_pixel[2] + 0.578 * left_pixel[1] + 0.114 * left_pixel[0]
                         );
                         break;
                     case COLOR:
                         // Color Anaglyphs
                         anaglyph_name = "Color";
                         anaglyph_image.at<cv::Vec3b>(i, j) = cv::Vec3b(
-                            left_pixel[2],
+                            right_pixel[2],
                             right_pixel[1],
-                            right_pixel[0]
+                            left_pixel[0]
                         );
                         break;
                     case HALFCOLOR:
                         // Half Color Anaglyphs
                         anaglyph_name = "Half Color";
                         anaglyph_image.at<cv::Vec3b>(i, j) = cv::Vec3b(
-                            0.299* left_pixel[2] + 0.578 * left_pixel[1] + 0.114 * left_pixel[0],
+                            0.299* right_pixel[2] + 0.578 * right_pixel[1] + 0.114 * right_pixel[0],
                             right_pixel[1],
-                            right_pixel[0]
+                            left_pixel[0]
                         );
                         break;
                     case OPTIMIZED:
                         // Optimized Anaglyphs
                         anaglyph_name = "Optimized";
                         anaglyph_image.at<cv::Vec3b>(i, j) = cv::Vec3b(
-                            0.7 * left_pixel[1] + 0.3 * left_pixel[0],
+                            0.7 * right_pixel[1] + 0.3 * right_pixel[0],
                             right_pixel[1],
-                            right_pixel[0]
+                            left_pixel[0]
                         );
                         break;
                     default:
@@ -138,6 +166,10 @@ int main( int argc, char** argv )
 
     // Display the anaglyph image
     cv::imshow(anaglyph_name + " Anaglyph Image", anaglyph_image);
+
+    // Save the anaglyph image
+    std::string filename =  "output/open-omp/" + anaglyph_name + "Anaglyph.jpg";
+    cv::imwrite(filename, anaglyph_image);
 
     // Display performance metrics
     cout << "Total time: " << diff.count() << " s" << endl;
