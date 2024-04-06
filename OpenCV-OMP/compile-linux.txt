@@ -15,6 +15,10 @@ g++ 2.1.2_anaglyphs-omp.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o 2.1.
 ./2.1.2_anaglyphs-omp garden-stereo.jpg 0 7 5
 
 // Exercise 2.1.3
+g++ 2.1.3-omp.cpp -fopenmp `pkg-config opencv4 --cflags` -c
+g++ 2.1.3-omp.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o 2.1.3-omp
+./2.1.3-omp garden-stereo.jpg 0 7 5
+
 g++ opencv-omp-basic-2.cpp -fopenmp `pkg-config opencv4 --cflags` -c
 g++ opencv-omp-basic-2.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o opencv-omp-basic-2
 

@@ -108,6 +108,11 @@ int main( int argc, char** argv )
     int kernelSize = atoi(argv[3]);
     double sigma = atof(argv[4]);
 
+    if (kernelSize.empty() || sigma) {
+        cerr << "Error: Unable to load image." << endl;
+        return -1;
+    }
+
     // Apply Gaussian blur to left and right images
     if (kernelSize && sigma) {
         // By Built-in function
