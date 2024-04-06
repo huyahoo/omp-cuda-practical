@@ -78,45 +78,45 @@ int main( int argc, char** argv )
                         // True Anaglyphs
                         anaglyph_name = "True";
                         anaglyph_image.at<cv::Vec3b>(i, j) = cv::Vec3b(
-                            0.299 * right_pixel[2] + 0.578 * right_pixel[1] + 0.114 * right_pixel[0],
+                            0.299 * right_pixel[0] + 0.578 * right_pixel[1] + 0.114 * right_pixel[2],
                             0,
-                            0.299 * left_pixel[2] + 0.578 * left_pixel[1] + 0.114 * left_pixel[0]
+                            0.299 * left_pixel[0] + 0.578 * left_pixel[1] + 0.114 * left_pixel[2]
                         );
                         break;
                     case GRAY:
                         // Gray Anaglyphs
                         anaglyph_name = "Gray";
                         anaglyph_image.at<cv::Vec3b>(i, j) = cv::Vec3b(
-                            0.299 * right_pixel[2] + 0.578 * right_pixel[1] + 0.114 * right_pixel[0],
-                            0.299 * right_pixel[2] + 0.578 * right_pixel[1] + 0.114 * right_pixel[0],
-                            0.299 * left_pixel[2] + 0.578 * left_pixel[1] + 0.114 * left_pixel[0]
+                            0.299 * right_pixel[0] + 0.578 * right_pixel[1] + 0.114 * right_pixel[2],
+                            0.299 * right_pixel[0] + 0.578 * right_pixel[1] + 0.114 * right_pixel[2],
+                            0.299 * left_pixel[0] + 0.578 * left_pixel[1] + 0.114 * left_pixel[2]
                         );
                         break;
                     case COLOR:
                         // Color Anaglyphs
                         anaglyph_name = "Color";
                         anaglyph_image.at<cv::Vec3b>(i, j) = cv::Vec3b(
-                            right_pixel[2],
+                            right_pixel[0],
                             right_pixel[1],
-                            left_pixel[0]
+                            left_pixel[2]
                         );
                         break;
                     case HALFCOLOR:
                         // Half Color Anaglyphs
                         anaglyph_name = "Half Color";
                         anaglyph_image.at<cv::Vec3b>(i, j) = cv::Vec3b(
-                            0.299* right_pixel[2] + 0.578 * right_pixel[1] + 0.114 * right_pixel[0],
+                            0.299* right_pixel[0] + 0.578 * right_pixel[1] + 0.114 * right_pixel[2],
                             right_pixel[1],
-                            left_pixel[0]
+                            left_pixel[2]
                         );
                         break;
                     case OPTIMIZED:
                         // Optimized Anaglyphs
                         anaglyph_name = "Optimized";
                         anaglyph_image.at<cv::Vec3b>(i, j) = cv::Vec3b(
-                            0.7 * right_pixel[1] + 0.3 * right_pixel[0],
+                            0.7 * right_pixel[1] + 0.3 * right_pixel[2],
                             right_pixel[1],
-                            left_pixel[0]
+                            left_pixel[2]
                         );
                         break;
                     default:
