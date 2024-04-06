@@ -1,6 +1,6 @@
 # practical-work-2
 
-## OMP
+## Image Processing by OPEN-OMP
 The results will be saved in the folder named as "output".
 
 Move to main directory:
