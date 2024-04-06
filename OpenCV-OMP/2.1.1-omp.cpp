@@ -24,6 +24,7 @@ int main( int argc, char** argv )
 
     // Read the stereo image
     cv::Mat stereo_image = cv::imread(argv[1], cv::IMREAD_COLOR);
+
     // Determine the type of anaglyphs to generate
     AnaglyphType anaglyph_type = static_cast<AnaglyphType>(atoi(argv[2]));
 
@@ -47,10 +48,6 @@ int main( int argc, char** argv )
     // Split the stereo image into left and right images
     cv::Mat left_image(stereo_image, cv::Rect(0, 0, stereo_image.cols / 2, stereo_image.rows));
     cv::Mat right_image(stereo_image, cv::Rect(stereo_image.cols / 2, 0, stereo_image.cols / 2, stereo_image.rows));
-
-    // Display the left and right images
-    // cv::imshow("Left Image", left_image);
-    // cv::imshow("Right Image", right_image);
 
     // Create an empty anaglyph image with the same size as the left and right images
     cv::Mat anaglyph_image(left_image.size(), CV_8UC3);
@@ -139,8 +136,11 @@ int main( int argc, char** argv )
     // Display the anaglyph image
     cv::imshow(anaglyph_name + " Anaglyph Image", anaglyph_image);
 
+    // Display the left and right images
+    cv::imshow("Input Image", stereo_image);
+
     // Save the anaglyph image
-    std::string filename =  "output/open-omp/" + anaglyph_name + "Anaglyph.jpg";
+    std::string filename =  "output/2.1/" + anaglyph_name + "Anaglyph.jpg";
     cv::imwrite(filename, anaglyph_image);
 
     // Display performance metrics
