@@ -8,45 +8,25 @@
 using namespace std;
 
 enum AnaglyphType {
-    TRUE = 0,
+    NORMAL=0,
+    TRUE = 1,
     GRAY,
     COLOR,
     HALFCOLOR,
     OPTIMIZED
 };
 
-// Function to generate a 2D Gaussian kernel
-cv::Mat generateGaussianKernel(int kernel_size, double sigma) {
-    cv::Mat kernel(kernel_size, kernel_size, CV_64F);
-
-    double sum = 0.0;
-    int half_kernel = kernel_size / 2;
-
-    for (int x = -half_kernel; x <= half_kernel; x++) {
-        for (int y = -half_kernel; y <= half_kernel; y++) {
-            double value = exp(-(x * x + y * y) / (2 * sigma * sigma)) / (2 * M_PI * sigma * sigma);
-            kernel.at<double>(x + half_kernel, y + half_kernel) = value;
-            sum += value;
-        }
-    }
-
-    // Normalize the kernel
-    kernel /= sum;
-
-    return kernel;
-}
-
-// Function to apply Gaussian filter to an image
-cv::Mat applyGaussianFilter(const cv::Mat& input_image, const cv::Mat& kernel) {
-    cv::Mat filtered_image;
-    cv::filter2D(input_image, filtered_image, -1, kernel, cv::Point(-1, -1), 0, cv::BORDER_REPLICATE);
-    return filtered_image;
+// Function to apply Gaussian blur to an image
+cv::Mat applyGaussianBlur(const cv::Mat& image, int kernelSize, double sigma) {
+    cv::Mat blurredImage;
+    cv::GaussianBlur(image, blurredImage, cv::Size(kernelSize, kernelSize), sigma, sigma);
+    return blurredImage;
 }
 
 int main( int argc, char** argv )
 {
-    if (argc < 3) {
-        cerr << "Usage: " << argv[0] << " <image_path> <anaglyph_type>" << endl;
+    if (argc < 5) {
+        cerr << "Usage: " << argv[0] << " <image_path> <anaglyph_type> <kernel_size> <sigma>" << endl;
         return -1;
     }
 
@@ -61,20 +41,30 @@ int main( int argc, char** argv )
         return -1;
     }
 
-    if (anaglyph_type < TRUE || anaglyph_type > OPTIMIZED) {
+    if (anaglyph_type < NORMAL || anaglyph_type > OPTIMIZED) {
         cerr << "Error: Invalid anaglyph type." << endl;
         cerr << "Anaglyph types:" << endl;
-        cerr << "0: True Anaglyphs" << endl;
-        cerr << "1: Gray Anaglyphs" << endl;
-        cerr << "2: Color Anaglyphs" << endl;
-        cerr << "3: Half Color Anaglyphs" << endl;
-        cerr << "4: Optimized Anaglyphs" << endl;
+        cerr << "0: None Anaglyphs" << endl;
+        cerr << "1: True Anaglyphs" << endl;
+        cerr << "2: Gray Anaglyphs" << endl;
+        cerr << "3: Color Anaglyphs" << endl;
+        cerr << "4: Half Color Anaglyphs" << endl;
+        cerr << "5: Optimized Anaglyphs" << endl;
         return -1;
     }
 
     // Split the stereo image into left and right images
     cv::Mat left_image(stereo_image, cv::Rect(0, 0, stereo_image.cols / 2, stereo_image.rows));
     cv::Mat right_image(stereo_image, cv::Rect(stereo_image.cols / 2, 0, stereo_image.cols / 2, stereo_image.rows));
+
+    int kernelSize = atoi(argv[3]);
+    double sigma = atof(argv[4]);
+
+    // Apply Gaussian blur to left and right images
+    if (kernelSize && sigma) {
+        left_image = applyGaussianBlur(left_image, kernelSize, sigma);
+        right_image = applyGaussianBlur(right_image, kernelSize, sigma);
+    }
 
     // Display the left and right images
     // cv::imshow("Left Image", left_image);
@@ -149,10 +139,8 @@ int main( int argc, char** argv )
                         );
                         break;
                     default:
-                        #pragma omp critical
-                        {
-                            cerr << "Error: Invalid anaglyph type." << endl;
-                        }
+                        anaglyph_name = "Normal";
+                        anaglyph_image.at<cv::Vec3b>(i, j) = left_image.at<cv::Vec3b>(i, j);
                 }
             }
         }
@@ -168,8 +156,8 @@ int main( int argc, char** argv )
     cv::imshow(anaglyph_name + " Anaglyph Image", anaglyph_image);
 
     // Save the anaglyph image
-    std::string filename =  "output/open-omp/" + anaglyph_name + "Anaglyph.jpg";
-    cv::imwrite(filename, anaglyph_image);
+    // std::string filename =  "output/open-omp/" + anaglyph_name + "Anaglyph.jpg";
+    // cv::imwrite(filename, anaglyph_image);
 
     // Display performance metrics
     cout << "Total time: " << diff.count() << " s" << endl;
