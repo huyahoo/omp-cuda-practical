@@ -15,6 +15,34 @@ enum AnaglyphType {
     OPTIMIZED
 };
 
+// Function to generate a 2D Gaussian kernel
+cv::Mat generateGaussianKernel(int kernel_size, double sigma) {
+    cv::Mat kernel(kernel_size, kernel_size, CV_64F);
+
+    double sum = 0.0;
+    int half_kernel = kernel_size / 2;
+
+    for (int x = -half_kernel; x <= half_kernel; x++) {
+        for (int y = -half_kernel; y <= half_kernel; y++) {
+            double value = exp(-(x * x + y * y) / (2 * sigma * sigma)) / (2 * M_PI * sigma * sigma);
+            kernel.at<double>(x + half_kernel, y + half_kernel) = value;
+            sum += value;
+        }
+    }
+
+    // Normalize the kernel
+    kernel /= sum;
+
+    return kernel;
+}
+
+// Function to apply Gaussian filter to an image
+cv::Mat applyGaussianFilter(const cv::Mat& input_image, const cv::Mat& kernel) {
+    cv::Mat filtered_image;
+    cv::filter2D(input_image, filtered_image, -1, kernel, cv::Point(-1, -1), 0, cv::BORDER_REPLICATE);
+    return filtered_image;
+}
+
 int main( int argc, char** argv )
 {
     if (argc < 3) {
