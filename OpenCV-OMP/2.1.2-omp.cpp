@@ -123,10 +123,6 @@ int main( int argc, char** argv )
         gaussKernel[i] = new double[kernelSize];
     }
     generateGaussianKernel(gaussKernel, kernelSize, sigma);
-    // for (int i = 0; i < kernelSize; ++i) {
-    //     delete[] gaussKernel[i];
-    // }
-    // delete[] gaussKernel;
 
     // Start the timer
     auto begin = chrono::high_resolution_clock::now();
@@ -234,6 +230,11 @@ int main( int argc, char** argv )
 
     // Wait for a key press before closing the windows
     cv::waitKey();
+
+    for (int i = 0; i < kernelSize; ++i) {
+        delete[] gaussKernel[i];
+    }
+    delete[] gaussKernel;
 
     return 0;
 }
