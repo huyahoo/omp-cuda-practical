@@ -22,25 +22,10 @@ cv::Mat applyGaussianBlurBuildIn(const cv::Mat& image, int kernelSize, double si
     return blurredImage;
 }
 
-cv::Mat applyGaussianBlur(const cv::Mat& src, int kernelSize, double sigma) {
+cv::Mat applyGaussianBlur(const cv::Mat& src, int kernelSize, double** gaussKernel) {
     cv::Mat dst(src.size(), CV_8UC3);
 
     int halfKernelSize = kernelSize / 2;
-    const double PI = 3.14159265358979323846;
-
-    // Pre-calculate constants
-    double lp = 1.0 / (2.0 * PI * sigma * sigma);
-    double rp = 1.0 / (2.0 * sigma * sigma);
-    double gaussKernel[kernelSize][kernelSize];
-
-    // Generate Gaussian kernel
-    #pragma omp parallel for
-    for (int i = -halfKernelSize; i <= halfKernelSize; ++i) {
-        for (int j = -halfKernelSize; j <= halfKernelSize; ++j) {
-            double gaussianVal = lp * exp(-(i * i + j * j) * rp);
-            gaussKernel[i + halfKernelSize][j + halfKernelSize] = gaussianVal;
-        }
-    }
 
     // Apply Gaussian blur
     #pragma omp parallel for
@@ -65,6 +50,22 @@ cv::Mat applyGaussianBlur(const cv::Mat& src, int kernelSize, double sigma) {
     }
 
     return dst;
+}
+
+void generateGaussianKernel(double** gaussKernel, int kernelSize, double sigma) {
+    int halfKernelSize = kernelSize / 2;
+    const double PI = 3.14159265358979323846;
+
+    double lp = 1.0 / (2.0 * PI * sigma * sigma);
+    double rp = 1.0 / (2.0 * sigma * sigma);
+
+    #pragma omp parallel for
+    for (int i = -halfKernelSize; i <= halfKernelSize; ++i) {
+        for (int j = -halfKernelSize; j <= halfKernelSize; ++j) {
+            double gaussianVal = lp * exp(-(i * i + j * j) * rp);
+            gaussKernel[i + halfKernelSize][j + halfKernelSize] = gaussianVal;
+        }
+    }
 }
 
 int main( int argc, char** argv )
@@ -105,15 +106,7 @@ int main( int argc, char** argv )
     double sigma = atof(argv[4]);
 
     // Apply Gaussian blur to left and right images
-    if (kernelSize && sigma) {
-        // By Built-in function
-        // left_image = applyGaussianBlurBuildIn(left_image, kernelSize, sigma);
-        // right_image = applyGaussianBlurBuildIn(right_image, kernelSize, sigma);
-
-        // By Custom function
-        left_image = applyGaussianBlur(left_image, kernelSize, sigma);
-        right_image = applyGaussianBlur(right_image, kernelSize, sigma);
-    } else {
+    if (!kernelSize || !sigma) {
         cerr << "Error: Invalid kernel size or sigma." << endl;
         cerr << "Input kernel size in range odd numbers from 3 to 21" << endl;
         cerr << "Input sigma in range odd numbers from 0.1 to 10" << endl;
@@ -125,17 +118,36 @@ int main( int argc, char** argv )
 
     std::string anaglyph_name;
 
+    double** gaussKernel = new double*[kernelSize];
+    for (int i = 0; i < kernelSize; ++i) {
+        gaussKernel[i] = new double[kernelSize];
+    }
+    generateGaussianKernel(gaussKernel, kernelSize, sigma);
+    // for (int i = 0; i < kernelSize; ++i) {
+    //     delete[] gaussKernel[i];
+    // }
+    // delete[] gaussKernel;
+
     // Start the timer
     auto begin = chrono::high_resolution_clock::now();
 
     // Number of iterations
-    const int iter = 500;
+    const int iter = 5;
 
     // Perform the operation iter times
     for (int it = 0; it < iter; it++) {
+
+        left_image = applyGaussianBlur(left_image, kernelSize, gaussKernel);
+        right_image = applyGaussianBlur(right_image, kernelSize, gaussKernel);
+
+        if (anaglyph_type == NORMAL) {
+            anaglyph_name = "None";
+            anaglyph_image = left_image;
+            continue;
+        }
+
         // Parallelize the outer loop using OpenMP
         #pragma omp parallel for
-        // Loop through each pixel in the left image
         for (int i = 0; i < left_image.rows; i++) {
             for (int j = 0; j < left_image.cols; j++) {
                 // Get the color channels for the left and right pixels
@@ -208,7 +220,7 @@ int main( int argc, char** argv )
     cv::imshow("Input Image", stereo_image);
 
     // Display the output image
-    cv::imshow("Gaussian +" + anaglyph_name + " Anaglyph Image", anaglyph_image);
+    cv::imshow("Gaussian + " + anaglyph_name + " Anaglyph Image", anaglyph_image);
     cv::imshow("Gaussian Blur By Build-in Function Image", gaussianBlurBuildInImage);
 
     // Save the anaglyph image

@@ -92,7 +92,6 @@ Usage:
 Example:
 ```bash
 /usr/local/cuda-11.6/bin/nvcc -O3 2.1.1-cuda.cu `pkg-config opencv4 --cflags --libs` -o 2.1.1-cuda
-/usr/local/cuda-11.6/bin/nvcc -O3 2.1.1-cuda.cu `pkg-config opencv4 --cflags --libs` -o 2.1.1-cuda
 ./2.1.1-cuda garden-stereo.jpg 0
 ```
 
@@ -109,7 +108,19 @@ Usage:
 
 Example:
 ```bash
-g++ 2.1.2-cuda.cpp -fopenmp `pkg-config opencv4 --cflags` -c
-g++ 2.1.2-cuda.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o 2.1.2-cuda
+/usr/local/cuda-11.6/bin/nvcc -O3 2.1.2-cuda.cu `pkg-config opencv4 --cflags --libs` -o 2.1.2-cuda
 ./2.1.2-cuda garden-stereo.jpg 0 7 5
+```
+
+### Exercise 2.1.3
+
+Usage:
+```bash
+./2.1.3-cuda <image_path> <neighborhood_size> <factor_ratio>
+```
+
+Example:
+```bash
+/usr/local/cuda-11.6/bin/nvcc -O3 2.1.3-cuda.cu `pkg-config opencv4 --cflags --libs` -o 2.1.3-cuda
+./2.1.3-cuda garden-stereo.jpg 0 7 5
 ```
