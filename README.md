@@ -122,5 +122,5 @@ Usage:
 Example:
 ```bash
 /usr/local/cuda-11.6/bin/nvcc -O3 2.1.3-cuda.cu `pkg-config opencv4 --cflags --libs` -o 2.1.3-cuda
-./2.1.3-cuda garden-stereo.jpg 0 7 5
+./2.1.3-cuda noise.png 5 1
 ```

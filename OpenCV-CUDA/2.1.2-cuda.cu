@@ -283,5 +283,7 @@ int main( int argc, char** argv )
     // Wait for a key press before closing the windows
     cv::waitKey();
 
+    cudaFree(gaussKernel);
+
     return 0;
 }
