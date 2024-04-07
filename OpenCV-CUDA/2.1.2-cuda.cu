@@ -1,5 +1,6 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
+#include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudawarping.hpp>
 #include <cfloat>
 #include <opencv2/core/cuda/common.hpp>
@@ -8,14 +9,12 @@
 #include <opencv2/core/cuda/vec_math.hpp>
 #include <string>
 #include <cmath>
-#include <chrono>  // for high_resolution_clock
-
-#include "helper_math.h"
+#include <chrono>  
 
 using namespace std;
 
 enum AnaglyphType {
-    NORMAL = 0,
+    NORMAL=0,
     TRUE,
     GRAY,
     COLOR,
@@ -23,16 +22,62 @@ enum AnaglyphType {
     OPTIMIZED
 };
 
-__global__ void processKernel(const cv::cuda::PtrStep<uchar3> left_image,
-                              const cv::cuda::PtrStep<uchar3> right_image,
-                              cv::cuda::PtrStep<uchar3> anaglyph_image,
-                              int rows,
-                              int cols,
-                              int anaglyph_type) {
+__global__ void applyGaussianBlurKernel(const cv::cuda::PtrStepSz<uchar3> src, cv::cuda::PtrStepSz<uchar3> dst, int kernelSize, double sigma) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if (x < cols && y < rows) {
+    if (x < src.cols && y < src.rows) {
+        int halfKernelSize = kernelSize / 2;
+        const double PI = 3.14159265358979323846;
+
+        // Pre-calculate constants
+        double lp = 1.0 / (2.0 * PI * sigma * sigma);
+        double rp = 1.0 / (2.0 * sigma * sigma);
+        double gaussKernel[21][21];
+
+        // Generate Gaussian kernel
+        for (int i = -halfKernelSize; i <= halfKernelSize; ++i) {
+            for (int j = -halfKernelSize; j <= halfKernelSize; ++j) {
+                double gaussianVal = lp * exp(-(i * i + j * j) * rp);
+                gaussKernel[i + halfKernelSize][j + halfKernelSize] = gaussianVal;
+            }
+        }
+
+        // Apply Gaussian blur
+        double sum[3] = {0.0, 0.0, 0.0};
+        double gaussianTotal = 0.0;
+
+        for (int i = -halfKernelSize; i <= halfKernelSize; ++i) {
+            for (int j = -halfKernelSize; j <= halfKernelSize; ++j) {
+                int row = min(max(y + i, 0), src.rows - 1);
+                int col = min(max(x + j, 0), src.cols - 1);
+
+                double gaussianVal = gaussKernel[i + halfKernelSize][j + halfKernelSize];
+                gaussianTotal += gaussianVal;
+
+                uchar3 pixel = src(row, col);
+                double pixelVec[3] = {static_cast<double>(pixel.x), static_cast<double>(pixel.y), static_cast<double>(pixel.z)};
+                for (int k = 0; k < 3; ++k) {
+                    sum[k] += pixelVec[k] * gaussianVal;
+                }
+            }
+        }
+
+        for (int k = 0; k < 3; ++k) {
+            sum[k] /= gaussianTotal;
+        }
+        dst(y, x) = make_uchar3(static_cast<uchar>(sum[0]), static_cast<uchar>(sum[1]), static_cast<uchar>(sum[2]));
+    }
+}
+
+__global__ void processKernel(const cv::cuda::PtrStepSz<uchar3> left_image,
+                                     const cv::cuda::PtrStepSz<uchar3> right_image,
+                                     cv::cuda::PtrStepSz<uchar3> anaglyph_image,
+                                     int anaglyph_type) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x < left_image.cols && y < left_image.rows) {
         uchar3 left_pixel = left_image(y, x);
         uchar3 right_pixel = right_image(y, x);
 
@@ -84,71 +129,33 @@ __global__ void processKernel(const cv::cuda::PtrStep<uchar3> left_image,
     }
 }
 
-dim3 findOptimalBlockSize(cv::cuda::GpuMat& d_left_image, cv::cuda::GpuMat& d_right_image, cv::cuda::GpuMat& d_anaglyph_image, int anaglyph_type) {
-    int minBlockSize = 8;
-    int maxBlockSize = 64;
-
-    // Initialize the variables to store the optimal block size and the minimum time
-    dim3 optimalBlockSize(minBlockSize, minBlockSize);
-    double minTime = DBL_MAX;
-
-    // Loop over the block sizes
-    for (int blockSizeX = minBlockSize; blockSizeX <= maxBlockSize; blockSizeX += 8) {
-        for (int blockSizeY = minBlockSize; blockSizeY <= maxBlockSize; blockSizeY += 8) {
-            if (blockSizeX * blockSizeY > 1024) continue;
-
-            // Calculate the grid size
-            dim3 gridSize((d_left_image.cols + blockSizeX - 1) / blockSizeX, (d_left_image.rows + blockSizeY - 1) / blockSizeY);
-
-            // Start the timer
-            auto start = chrono::high_resolution_clock::now();
-
-            // Launch the kernel
-            processKernel<<<gridSize, dim3(blockSizeX, blockSizeY)>>>(d_left_image, d_right_image, d_anaglyph_image, d_left_image.rows, d_left_image.cols, anaglyph_type);
-
-            // Synchronize device after kernel launch
-            // cudaDeviceSynchronize();
-
-            // Stop the timer
-            auto end = chrono::high_resolution_clock::now();
-
-            // Calculate the time difference
-            chrono::duration<double> diff = end - start;
-
-            // If the current time is less than the minimum time, update the optimal block size and the minimum time
-            if (diff.count() < minTime) {
-                optimalBlockSize = dim3(blockSizeX, blockSizeY);
-                minTime = diff.count();
-            }
-        }
-    }
-
-    return optimalBlockSize;
-}
-
 int divUp(int a, int b)
 {
-  return ((a % b) != 0) ? (a / b + 1) : (a / b);
+    // const dim3 grid((d_left_image.cols + block.x - 1) / block.x, (d_left_image.rows + block.y - 1) / block.y);
+    return ((a % b) != 0) ? (a / b + 1) : (a / b);
 }
 
 void processCUDA(const cv::cuda::GpuMat& d_left_image,
-                 const cv::cuda::GpuMat& d_right_image,
-                 cv::cuda::GpuMat& d_anaglyph_image,
-                 int rows,
-                 int cols,
-                 int anaglyph_type) {
-    const dim3 block(64, 32);
+                const cv::cuda::GpuMat& d_right_image,
+                cv::cuda::GpuMat& d_anaglyph_image,
+                int kernelSize,
+                double sigma,
+                int anaglyph_type) {
+    const dim3 block(64, 16);
+    const dim3 grid(divUp(d_right_image.cols, block.x), divUp(d_right_image.rows, block.y));
 
-    const dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
-    processKernel<<<grid, block>>>(d_left_image, d_right_image, d_anaglyph_image, rows, cols, anaglyph_type);
+    // Apply Gaussian blur kernel
+    applyGaussianBlurKernel<<<grid, block>>>(d_left_image, d_left_image, kernelSize, sigma);
+    applyGaussianBlurKernel<<<grid, block>>>(d_right_image, d_right_image, kernelSize, sigma);
+
+    // Create anaglyph image kernel
+    processKernel<<<grid, block>>>(d_left_image, d_right_image, d_anaglyph_image, anaglyph_type);
 }
 
-int main(int argc, char** argv) {
-    cv::namedWindow("Original Image", cv::WINDOW_OPENGL | cv::WINDOW_AUTOSIZE);
-    cv::namedWindow("Processed Image", cv::WINDOW_OPENGL | cv::WINDOW_AUTOSIZE);
-
-    if (argc < 3) {
-        cerr << "Usage: " << argv[0] << " <image_path> <anaglyph_type>" << endl;
+int main( int argc, char** argv )
+{
+    if (argc < 5) {
+        cerr << "Usage: " << argv[0] << " <image_path> <anaglyph_type> <kernel_size> <sigma>" << endl;
         return -1;
     }
 
@@ -180,6 +187,16 @@ int main(int argc, char** argv) {
     cv::Mat left_image(stereo_image, cv::Rect(0, 0, stereo_image.cols / 2, stereo_image.rows));
     cv::Mat right_image(stereo_image, cv::Rect(stereo_image.cols / 2, 0, stereo_image.cols / 2, stereo_image.rows));
 
+    int kernelSize = atoi(argv[3]);
+    double sigma = atof(argv[4]);
+
+    if (kernelSize % 2 == 0 || sigma <= 0) {
+        cerr << "Error: Invalid kernel size or sigma." << endl;
+        cerr << "Input kernel size in range odd numbers from 3 to 21" << endl;
+        cerr << "Input sigma in range odd numbers from 0.1 to 10" << endl;
+        return -1;
+    }
+
     // Create an empty anaglyph image with the same size as the left and right images
     cv::Mat anaglyph_image(left_image.size(), CV_8UC3);
 
@@ -204,45 +221,42 @@ int main(int argc, char** argv) {
             anaglyph_name = "None";
     }
 
+    // Convert input images to GPU Mat
     cv::cuda::GpuMat d_left_image, d_right_image, d_anaglyph_image;
-
     d_left_image.upload(left_image);
     d_right_image.upload(right_image);
 
-    // Create the GPU matrix once before the loop
+    // Allocate memory for the anaglyph image on GPU
     d_anaglyph_image.create(left_image.rows, left_image.cols, CV_8UC3);
-
-    // dim3 optimalBlockSize = findOptimalBlockSize(d_left_image, d_right_image, d_anaglyph_image, anaglyph_type);
-    // cerr << "Optimal block size: (" << optimalBlockSize.x << ", " << optimalBlockSize.y << ")" << endl;
 
     // Start the timer
     auto begin = chrono::high_resolution_clock::now();
 
     // Number of iterations
-    const int iter = 500;
+    const int iter = 1;
 
     // Perform the operation iter times
     for (int it = 0; it < iter; it++) {
-        processCUDA(d_left_image, d_right_image, d_anaglyph_image, left_image.rows, left_image.cols, anaglyph_type);
+        processCUDA(d_left_image, d_right_image, d_anaglyph_image, kernelSize, sigma, anaglyph_type);
     }
 
     // Stop the timer
-    auto end = std::chrono::high_resolution_clock::now();
+    auto end = chrono::high_resolution_clock::now();
 
-    // Download the result from the GPU once after the loop
+    // Download the result from the GPU
     d_anaglyph_image.download(anaglyph_image);
 
     // Calculate the time difference
-    std::chrono::duration<double> diff = end - begin;
-
-    // Display the anaglyph image
-    cv::imshow(anaglyph_name + " Anaglyph Image", anaglyph_image);
+    chrono::duration<double> diff = end - begin;
 
     // Display the original images
     cv::imshow("Input Image", stereo_image);
 
+    // Display the output image
+    cv::imshow("Gaussian +" + anaglyph_name + " Anaglyph Image", anaglyph_image);
+
     // Save the anaglyph image
-    // std::string filename = "output/2.1.1/" + anaglyph_name + "Anaglyph.jpg";
+    // std::string filename =  "output/2.1.2/" + anaglyph_name + "Anaglyph-blurred.jpg";
     // cv::imwrite(filename, anaglyph_image);
 
     // Display performance metrics

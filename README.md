@@ -40,7 +40,7 @@ g++ 2.1.1-omp.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o 2.1.1-omp
   
 Usage:
 ```bash
-./2.1.1-omp <image_path> <anaglyph_type> <kernel_size> <sigma>
+./2.1.2-omp <image_path> <anaglyph_type> <kernel_size> <sigma>
 ```
 
 Example:
@@ -54,7 +54,7 @@ g++ 2.1.2-omp.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o 2.1.2-omp
 
 Usage:
 ```bash
-./2.1.1-omp <image_path> <neighborhood_size> <factor_ratio>
+./2.1.3-omp <image_path> <neighborhood_size> <factor_ratio>
 ```
 
 Example:
@@ -94,4 +94,22 @@ Example:
 /usr/local/cuda-11.6/bin/nvcc -O3 2.1.1-cuda.cu `pkg-config opencv4 --cflags --libs` -o 2.1.1-cuda
 /usr/local/cuda-11.6/bin/nvcc -O3 2.1.1-cuda.cu `pkg-config opencv4 --cflags --libs` -o 2.1.1-cuda
 ./2.1.1-cuda garden-stereo.jpg 0
+```
+
+### Exercise 2.1.2
+
+- Anaglyph type is 0 as default
+- Input kernel size in range odd numbers from 3 to 21
+- Input sigma in range odd numbers from 0.1 to 10
+  
+Usage:
+```bash
+./2.1.2-cuda <image_path> <anaglyph_type> <kernel_size> <sigma>
+```
+
+Example:
+```bash
+g++ 2.1.2-cuda.cpp -fopenmp `pkg-config opencv4 --cflags` -c
+g++ 2.1.2-cuda.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o 2.1.2-cuda
+./2.1.2-cuda garden-stereo.jpg 0 7 5
 ```
