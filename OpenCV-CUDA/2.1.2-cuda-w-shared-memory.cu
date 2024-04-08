@@ -130,38 +130,24 @@ __global__ void processKernel(const cv::cuda::PtrStepSz<uchar3> left_image,
     }
 }
 
-__global__ void mergeImagesKernel(cv::cuda::PtrStepSz<uchar3> leftImage, cv::cuda::PtrStepSz<uchar3> rightImage, cv::cuda::PtrStepSz<uchar3> resultImage, int rows, int cols) {
-    const int dst_x = blockDim.x * blockIdx.x + threadIdx.x;
-    const int dst_y = blockDim.y * blockIdx.y + threadIdx.y;
-
-    if (dst_y < rows && dst_x < cols) {
-        resultImage(dst_y, dst_x) = leftImage(dst_y, dst_x);
-        resultImage(dst_y, dst_x + cols) = rightImage(dst_y, dst_x);
-    }
-}
-
 int divUp(int a, int b)
 {
+    // const dim3 grid((d_left_image.cols + block.x - 1) / block.x, (d_left_image.rows + block.y - 1) / block.y);
     return ((a % b) != 0) ? (a / b + 1) : (a / b);
 }
 
 void processCUDA(const cv::cuda::GpuMat& d_left_image,
                 const cv::cuda::GpuMat& d_right_image,
                 cv::cuda::GpuMat& d_anaglyph_image,
-                cv::cuda::GpuMat& d_blurred_image,
                 int kernelSize,
                 int anaglyph_type,
                 double* gaussKernel) {
     const dim3 block(32, 8);
     const dim3 grid(divUp(d_right_image.cols, block.x), divUp(d_right_image.rows, block.y));
-    int rows = d_anaglyph_image.rows;
-    int cols = d_anaglyph_image.cols;
 
     // Apply Gaussian blur kernel
     applyGaussianBlurKernel<<<grid, block>>>(d_left_image, d_left_image, kernelSize, gaussKernel);
     applyGaussianBlurKernel<<<grid, block>>>(d_right_image, d_right_image, kernelSize, gaussKernel);
-
-    mergeImagesKernel<<<grid, block>>>(d_left_image, d_right_image, d_blurred_image, rows, cols);
 
     if (anaglyph_type == NORMAL) {
         d_anaglyph_image = d_left_image;
@@ -238,9 +224,9 @@ int main( int argc, char** argv )
 
     generateGaussianKernelKernel<<<gridSize, blockSize>>>(gaussKernel, kernelSize, sigma);
 
-    cv::Mat anaglyph_image, blurred_image;
+    cv::Mat anaglyph_image;
 
-    cv::cuda::GpuMat d_left_image, d_right_image, d_blurred_image, d_anaglyph_image;
+    cv::cuda::GpuMat d_left_image, d_right_image, d_anaglyph_image;
 
     // Start the timer
     auto begin = chrono::high_resolution_clock::now();
@@ -252,10 +238,8 @@ int main( int argc, char** argv )
     for (int it = 0; it < iter; it++) {
         d_left_image.upload(left_image);
         d_right_image.upload(right_image);
-        d_anaglyph_image.upload(right_image);
-        d_blurred_image.upload(stereo_image);
-        processCUDA(d_left_image, d_right_image, d_anaglyph_image, d_blurred_image, kernelSize, anaglyph_type, gaussKernel);
-        d_blurred_image.download(blurred_image);
+        d_anaglyph_image.upload(left_image);
+        processCUDA(d_left_image, d_right_image, d_anaglyph_image, kernelSize, anaglyph_type, gaussKernel);
         d_anaglyph_image.download(anaglyph_image);
     }
 
@@ -269,15 +253,11 @@ int main( int argc, char** argv )
     cv::imshow("Input Image", stereo_image);
 
     // Display the output image
-    cv::imshow("Gaussian Blurred Image", blurred_image);
     cv::imshow("Gaussian + " + anaglyph_name + " Anaglyph Image", anaglyph_image);
 
     // Save the anaglyph image
     std::string filename =  "output/2.1.2/" + anaglyph_name + "Anaglyph-blurred.jpg";
     cv::imwrite(filename, anaglyph_image);
-
-    std::string blurred_img_name =  "output/2.1.2/blurred.jpg";
-    cv::imwrite(blurred_img_name, blurred_image);
 
     // Display performance metrics
     cout << "Total time for " << iter << " iteration: " << diff.count() << " s" << endl;

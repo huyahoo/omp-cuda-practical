@@ -116,6 +116,8 @@ int main( int argc, char** argv )
     // Create an empty anaglyph image with the same size as the left and right images
     cv::Mat anaglyph_image(left_image.size(), CV_8UC3);
 
+    cv::Mat blurred_image(stereo_image.size(), CV_8UC3);
+
     std::string anaglyph_name;
 
     double** gaussKernel = new double*[kernelSize];
@@ -135,6 +137,8 @@ int main( int argc, char** argv )
 
         left_image = applyGaussianBlur(left_image, kernelSize, gaussKernel);
         right_image = applyGaussianBlur(right_image, kernelSize, gaussKernel);
+
+        cv::hconcat(left_image, right_image, blurred_image);
 
         if (anaglyph_type == NORMAL) {
             anaglyph_name = "None";
@@ -216,15 +220,22 @@ int main( int argc, char** argv )
     cv::imshow("Input Image", stereo_image);
 
     // Display the output image
-    cv::imshow("Gaussian + " + anaglyph_name + " Anaglyph Image", anaglyph_image);
     cv::imshow("Gaussian Blur By Build-in Function Image", gaussianBlurBuildInImage);
+    cv::imshow("Gaussian Blurred Image", blurred_image);
+    cv::imshow("Gaussian + " + anaglyph_name + " Anaglyph Image", anaglyph_image);
 
     // Save the anaglyph image
     std::string filename =  "output/2.1.2/" + anaglyph_name + "Anaglyph-blurred.jpg";
     cv::imwrite(filename, anaglyph_image);
 
+    std::string blurred_img_name =  "output/2.1.2/blurred.jpg";
+    cv::imwrite(blurred_img_name, blurred_image);
+
+    std::string buildin_blurred_img_name =  "output/2.1.2/build-in-blurred.jpg";
+    cv::imwrite(buildin_blurred_img_name, gaussianBlurBuildInImage);
+
     // Display performance metrics
-    cout << "Total time: " << diff.count() << " s" << endl;
+    cout << "Total time for " << iter << " iteration: " << diff.count() << " s" << endl;
     cout << "Time for 1 iteration: " << diff.count() / iter << " s" << endl;
     cout << "IPS: " << iter / diff.count() << endl;
 

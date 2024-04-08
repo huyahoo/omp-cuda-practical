@@ -64,7 +64,7 @@ Example:
 ```bash
 g++ 2.1.3-omp.cpp -fopenmp `pkg-config opencv4 --cflags` -c
 g++ 2.1.3-omp.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o 2.1.3-omp
-./2.1.3-omp noise.png 0 5 1
+./2.1.3-omp noise.png 3 3
 ```
 
 ## Image Processing by CUDA
@@ -112,7 +112,7 @@ Usage:
 Example:
 ```bash
 /usr/local/cuda-11.6/bin/nvcc -O3 2.1.2-cuda.cu `pkg-config opencv4 --cflags --libs` -o 2.1.2-cuda
-./2.1.2-cuda garden-stereo.jpg 0 7 5
+./2.1.2-cuda garden-stereo.jpg 1 7 5
 ```
 
 ### Exercise 2.1.3
@@ -128,5 +128,5 @@ Usage:
 Example:
 ```bash
 /usr/local/cuda-11.6/bin/nvcc -O3 2.1.3-cuda.cu `pkg-config opencv4 --cflags --libs` -o 2.1.3-cuda
-./2.1.3-cuda noise.png 5 1
+./2.1.3-cuda noise.png 3 3
 ```
