@@ -2,7 +2,7 @@
 
 /usr/local/cuda-11.6/bin/nvcc -O3 imagecuda-linux.cu `pkg-config opencv4 --cflags --libs` -o imagecuda
 
-/usr/local/cuda-11.6/bin/nvcc -O3 image.cu `pkg-config opencv4 --cflags --libs` imagecpp-linux.cpp -o imagecuda
+/usr/local/cuda-11.6/bin/nvcc -O3 louis.cu `pkg-config opencv4 --cflags --libs` louis.cpp -o louis
 
 /usr/local/cuda-11.6/bin/nvcc -O3 imagePDE.cu `pkg-config opencv4 --cflags --libs` imagecpp-linuxPDE.cpp -o imagePDEcuda
 
