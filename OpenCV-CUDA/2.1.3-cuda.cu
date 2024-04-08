@@ -141,7 +141,7 @@ int main(int argc, char** argv) {
     auto begin = chrono::high_resolution_clock::now();
 
     // Number of iterations
-    const int iter = 5;
+    const int iter = 10000;
 
     for (int it = 0; it < iter; it++) {
         d_input_img.upload(input_img);
@@ -157,7 +157,7 @@ int main(int argc, char** argv) {
     chrono::duration<double> diff = end - begin;
 
     // Display performance metrics
-    cout << "Total time for " << iter << " iteration: " << diff.count() << " s" << endl;
+    cout << "Total time for " << iter << " iterations: " << diff.count() << " s" << endl;
     cout << "Time for 1 iteration: " << diff.count() / iter << " s" << endl;
     cout << "IPS: " << iter / diff.count() << endl;
 

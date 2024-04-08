@@ -145,7 +145,7 @@ int main( int argc, char** argv )
 
     // Display performance metrics
     cout << "Total time: " << diff.count() << " s" << endl;
-    cout << "Time for 1 iteration: " << diff.count() / iter << " s" << endl;
+    cout << "Total time for " << iter << " iterations: " << diff.count() << " s" << endl;
     cout << "IPS: " << iter / diff.count() << endl;
 
     // Wait for a key press before closing the windows

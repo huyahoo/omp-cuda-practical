@@ -2,12 +2,6 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudawarping.hpp>
-#include <cfloat>
-#include <opencv2/core/cuda/common.hpp>
-#include <opencv2/core/cuda/border_interpolate.hpp>
-#include <opencv2/core/cuda/vec_traits.hpp>
-#include <opencv2/core/cuda/vec_math.hpp>
-#include <string>
 #include <cmath>
 #include <chrono>  
 
@@ -78,7 +72,6 @@ __global__ void applyGaussianBlurKernel(const cv::cuda::PtrStepSz<uchar3> src, c
 
     if (dst_x < src.cols && dst_y < src.rows) {
         int halfKernelSize = kernelSize / 2;
-
         double sum[3] = {0.0, 0.0, 0.0};
         double gaussianTotal = 0.0;
 
@@ -311,11 +304,10 @@ int main( int argc, char** argv )
     cv::imwrite(blurred_img_name, blurred_image);
 
     // Display performance metrics
-    cout << "Total time for " << iter << " iteration: " << diff.count() << " s" << endl;
+    cout << "Total time for " << iter << " iterations: " << diff.count() << " s" << endl;
     cout << "Time for 1 iteration: " << diff.count() / iter << " s" << endl;
     cout << "IPS: " << iter / diff.count() << endl;
 
-    // Wait for a key press before closing the windows
     cv::waitKey();
 
     cudaFree(gaussKernel);

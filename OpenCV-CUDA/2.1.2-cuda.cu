@@ -248,7 +248,6 @@ int main( int argc, char** argv )
     // Number of iterations
     const int iter = 10000;
 
-    // Perform the operation iter times
     for (int it = 0; it < iter; it++) {
         d_left_image.upload(left_image);
         d_right_image.upload(right_image);
@@ -280,7 +279,7 @@ int main( int argc, char** argv )
     cv::imwrite(blurred_img_name, blurred_image);
 
     // Display performance metrics
-    cout << "Total time for " << iter << " iteration: " << diff.count() << " s" << endl;
+    cout << "Total time for " << iter << " iterations: " << diff.count() << " s" << endl;
     cout << "Time for 1 iteration: " << diff.count() / iter << " s" << endl;
     cout << "IPS: " << iter / diff.count() << endl;
 

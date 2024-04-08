@@ -235,7 +235,7 @@ int main( int argc, char** argv )
     cv::imwrite(buildin_blurred_img_name, gaussianBlurBuildInImage);
 
     // Display performance metrics
-    cout << "Total time for " << iter << " iteration: " << diff.count() << " s" << endl;
+    cout << "Total time for " << iter << " iterations: " << diff.count() << " s" << endl;
     cout << "Time for 1 iteration: " << diff.count() / iter << " s" << endl;
     cout << "IPS: " << iter / diff.count() << endl;
 
