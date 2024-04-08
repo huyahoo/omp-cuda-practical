@@ -52,6 +52,9 @@ g++ 2.1.2-omp.o  -fopenmp `pkg-config opencv4 --libs` -lstdc++ -o 2.1.2-omp
 
 ### Exercise 2.1.3
 
+- Neighborhood size must be an odd number.
+- Factor ratio must be greater than 0.
+
 Usage:
 ```bash
 ./2.1.3-omp <image_path> <neighborhood_size> <factor_ratio>
@@ -113,6 +116,9 @@ Example:
 ```
 
 ### Exercise 2.1.3
+
+- Neighborhood size must be an odd number.
+- Factor ratio must be greater than 0.
 
 Usage:
 ```bash

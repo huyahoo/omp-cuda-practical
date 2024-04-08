@@ -140,7 +140,6 @@ void processCUDA(const cv::cuda::GpuMat& d_left_image,
                 const cv::cuda::GpuMat& d_right_image,
                 cv::cuda::GpuMat& d_anaglyph_image,
                 int kernelSize,
-                double sigma,
                 int anaglyph_type,
                 double* gaussKernel) {
     const dim3 block(64, 16);
@@ -165,18 +164,13 @@ int main( int argc, char** argv )
         return -1;
     }
 
-    // Read the stereo image
     cv::Mat stereo_image = cv::imread(argv[1], cv::IMREAD_COLOR);
-
-    // Determine the type of anaglyphs to generate
-    AnaglyphType anaglyph_type = static_cast<AnaglyphType>(atoi(argv[2]));
-
-    // Check if the image is loaded successfully
     if (stereo_image.empty()) {
         cerr << "Error: Unable to load image." << endl;
         return -1;
     }
 
+    AnaglyphType anaglyph_type = static_cast<AnaglyphType>(atoi(argv[2]));
     if (anaglyph_type < NORMAL || anaglyph_type > OPTIMIZED) {
         cerr << "Error: Invalid anaglyph type." << endl;
         cerr << "Anaglyph types:" << endl;
@@ -188,34 +182,6 @@ int main( int argc, char** argv )
         cerr << "5: Optimized Anaglyphs" << endl;
         return -1;
     }
-
-    // Split the stereo image into left and right images
-    cv::Mat left_image(stereo_image, cv::Rect(0, 0, stereo_image.cols / 2, stereo_image.rows));
-    cv::Mat right_image(stereo_image, cv::Rect(stereo_image.cols / 2, 0, stereo_image.cols / 2, stereo_image.rows));
-
-    int kernelSize = atoi(argv[3]);
-    double sigma = atof(argv[4]);
-
-    if (!kernelSize|| !sigma) {
-        cerr << "Error: Invalid kernel size or sigma." << endl;
-        cerr << "Input kernel size in range odd numbers from 3 to 21" << endl;
-        cerr << "Input sigma in range odd numbers from 0.1 to 10" << endl;
-        return -1;
-    }
-
-    double* gaussKernel;
-    cudaMalloc(&gaussKernel, kernelSize * kernelSize * sizeof(double));
-
-    // Initialize the memory to 0
-    cudaMemset(gaussKernel, 0, kernelSize * kernelSize * sizeof(double));
-
-    dim3 blockSize(16, 16); // You can adjust these values as needed
-    dim3 gridSize((kernelSize + blockSize.x - 1) / blockSize.x, (kernelSize + blockSize.y - 1) / blockSize.y);
-
-    generateGaussianKernelKernel<<<gridSize, blockSize>>>(gaussKernel, kernelSize, sigma);
-
-    cv::Mat anaglyph_image(left_image.size(), CV_8UC3);
-
     std::string anaglyph_name;
     switch (anaglyph_type) {
         case TRUE:
@@ -237,6 +203,29 @@ int main( int argc, char** argv )
             anaglyph_name = "None";
     }
 
+    cv::Mat left_image(stereo_image, cv::Rect(0, 0, stereo_image.cols / 2, stereo_image.rows));
+    cv::Mat right_image(stereo_image, cv::Rect(stereo_image.cols / 2, 0, stereo_image.cols / 2, stereo_image.rows));
+
+    int kernelSize = atoi(argv[3]);
+    double sigma = atof(argv[4]);
+    if (!kernelSize|| !sigma) {
+        cerr << "Error: Invalid kernel size or sigma." << endl;
+        cerr << "Input kernel size in range odd numbers from 3 to 21" << endl;
+        cerr << "Input sigma in range odd numbers from 0.1 to 10" << endl;
+        return -1;
+    }
+
+    double* gaussKernel;
+    cudaMalloc(&gaussKernel, kernelSize * kernelSize * sizeof(double));
+
+    // Initialize the memory to 0
+    cudaMemset(gaussKernel, 0, kernelSize * kernelSize * sizeof(double));
+
+    dim3 blockSize(16, 16);
+    dim3 gridSize((kernelSize + blockSize.x - 1) / blockSize.x, (kernelSize + blockSize.y - 1) / blockSize.y);
+
+    generateGaussianKernelKernel<<<gridSize, blockSize>>>(gaussKernel, kernelSize, sigma);
+
     // Convert input images to GPU Mat
     cv::cuda::GpuMat d_left_image, d_right_image, d_anaglyph_image;
     d_left_image.upload(left_image);
@@ -253,13 +242,14 @@ int main( int argc, char** argv )
 
     // Perform the operation iter times
     for (int it = 0; it < iter; it++) {
-        processCUDA(d_left_image, d_right_image, d_anaglyph_image, kernelSize, sigma, anaglyph_type, gaussKernel);
+        processCUDA(d_left_image, d_right_image, d_anaglyph_image, kernelSize, anaglyph_type, gaussKernel);
     }
 
     // Stop the timer
     auto end = chrono::high_resolution_clock::now();
 
     // Download the result from the GPU
+    cv::Mat anaglyph_image(left_image.size(), CV_8UC3);
     d_anaglyph_image.download(anaglyph_image);
 
     // Calculate the time difference
