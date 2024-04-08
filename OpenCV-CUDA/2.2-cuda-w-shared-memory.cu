@@ -44,43 +44,44 @@ __global__ void generateGaussianKernelKernel(double* gaussKernel, int kernelSize
 }
 
 __global__ void applyGaussianBlurKernel(const cv::cuda::PtrStepSz<uchar3> src, cv::cuda::PtrStepSz<uchar3> dst, int kernelSize, double* gaussKernel) {
-    const int x = blockIdx.x * blockDim.x + threadIdx.x;
-    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    const int dst_x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int dst_y = blockIdx.y * blockDim.y + threadIdx.y;
 
-    // Shared memory for caching pixels
     __shared__ uchar3 sharedMem[SHARED_MEM_SIZE][SHARED_MEM_SIZE];
 
-    // Load pixel data into shared memory
     int sharedX = threadIdx.x + kernelSize / 2;
     int sharedY = threadIdx.y + kernelSize / 2;
 
-    // Load the neighboring pixels as well
-    if (x < src.cols && y < src.rows) {
-        sharedMem[sharedY][sharedX] = src(y, x);
-        for (int i = 0; i < kernelSize / 2; ++i) {
-            if (threadIdx.x == i && x > i) {
-                sharedMem[sharedY][sharedX - i - 1] = src(y, x - i - 1);
-            }
-            if (threadIdx.x == blockDim.x - 1 - i && x < src.cols - 1 - i) {
-                sharedMem[sharedY][sharedX + i + 1] = src(y, x + i + 1);
-            }
-            if (threadIdx.y == i && y > i) {
-                sharedMem[sharedY - i - 1][sharedX] = src(y - i - 1, x);
-            }
-            if (threadIdx.y == blockDim.y - 1 - i && y < src.rows - 1 - i) {
-                sharedMem[sharedY + i + 1][sharedX] = src(y + i + 1, x);
-            }
-        }
+    if (dst_x < src.cols && dst_y < src.rows) {
+        sharedMem[sharedY][sharedX] = src(dst_y, dst_x);
+    } else {
+        sharedMem[sharedY][sharedX] = make_uchar3(0, 0, 0);
+    }
+
+    if (threadIdx.x < kernelSize / 2) {
+        sharedMem[sharedY][sharedX - kernelSize / 2] = src(dst_y, dst_x - kernelSize / 2);
+        sharedMem[sharedY][sharedX + blockDim.x] = src(dst_y, dst_x + blockDim.x);
+    }
+
+    if (threadIdx.y < kernelSize / 2) {
+        sharedMem[sharedY - kernelSize / 2][sharedX] = src(dst_y - kernelSize / 2, dst_x);
+        sharedMem[sharedY + blockDim.y][sharedX] = src(dst_y + blockDim.y, dst_x);
+    }
+
+    if (threadIdx.y < kernelSize/2 && threadIdx.x < kernelSize/2) {
+        sharedMem[sharedY - kernelSize/2][sharedX - kernelSize/2] = src(dst_y - kernelSize/2, dst_x - kernelSize/2);
+        sharedMem[sharedY - kernelSize/2][sharedX + blockDim.x] = src(dst_y - kernelSize/2, dst_x + blockDim.x);
+        sharedMem[sharedY + blockDim.y][sharedX - kernelSize/2] = src(dst_y + blockDim.y, dst_x - kernelSize/2);
+        sharedMem[sharedY + blockDim.y][sharedX + blockDim.x] = src(dst_y + blockDim.y, dst_x + blockDim.x);
     }
     __syncthreads();
 
-    if (x < src.cols && y < src.rows) {
+    if (dst_x < src.cols && dst_y < src.rows) {
         int halfKernelSize = kernelSize / 2;
 
         double sum[3] = {0.0, 0.0, 0.0};
         double gaussianTotal = 0.0;
 
-        // Apply Gaussian filter using shared memory
         for (int i = -halfKernelSize; i <= halfKernelSize; ++i) {
             for (int j = -halfKernelSize; j <= halfKernelSize; ++j) {
                 uchar3 pixel = sharedMem[sharedY + i][sharedX + j];
@@ -97,7 +98,7 @@ __global__ void applyGaussianBlurKernel(const cv::cuda::PtrStepSz<uchar3> src, c
         for (int k = 0; k < 3; ++k) {
             sum[k] /= gaussianTotal;
         }
-        dst(y, x) = make_uchar3(static_cast<uchar>(sum[0]), static_cast<uchar>(sum[1]), static_cast<uchar>(sum[2]));
+        dst(dst_y, dst_x) = make_uchar3(static_cast<uchar>(sum[0]), static_cast<uchar>(sum[1]), static_cast<uchar>(sum[2]));
     }
 }
 
@@ -276,7 +277,7 @@ int main( int argc, char** argv )
     auto begin = chrono::high_resolution_clock::now();
 
     // Number of iterations
-    const int iter = 1;
+    const int iter = 10000;
 
     // Perform the operation iter times
     for (int it = 0; it < iter; it++) {
@@ -303,7 +304,7 @@ int main( int argc, char** argv )
     cv::imshow("Gaussian + " + anaglyph_name + " Anaglyph Image", anaglyph_image);
 
     // Save the anaglyph image
-    std::string filename =  "output/2.1.2/" + anaglyph_name + "Anaglyph-blurred.jpg";
+    std::string filename =  "output/2.2/" + anaglyph_name + "Anaglyph-blurred.jpg";
     cv::imwrite(filename, anaglyph_image);
 
     std::string blurred_img_name =  "output/2.1.2/blurred.jpg";
