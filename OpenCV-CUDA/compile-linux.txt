@@ -9,3 +9,7 @@ Ex 2.1.2
 Ex 2.1.3
 /usr/local/cuda-11.6/bin/nvcc -O3 2.1.3-cuda.cu `pkg-config opencv4 --cflags --libs` -o 2.1.3-cuda
 ./2.1.3-cuda noise.png 5 1
+
+Ex 2.2
+/usr/local/cuda-11.6/bin/nvcc -O3 2.2-cuda-w-shared-memory.cu `pkg-config opencv4 --cflags --libs` -o 2.2-cuda
+./2.2-cuda noise.png 0 7 5
