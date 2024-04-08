@@ -188,11 +188,11 @@ int main(int argc, char** argv) {
     cv::imshow("Input Image", stereo_image);
 
     // Save the anaglyph image
-    // std::string filename = "output/2.1.1/" + anaglyph_name + "Anaglyph.jpg";
-    // cv::imwrite(filename, anaglyph_image);
+    std::string filename = "output/2.1.1/" + anaglyph_name + "Anaglyph.jpg";
+    cv::imwrite(filename, anaglyph_image);
 
     // Display performance metrics
-    cout << "Total time for " << iter << ": " << diff.count() << " s" << endl;
+    cout << "Total time for " << iter << "iteration: " << diff.count() << " s" << endl;
     cout << "Time for 1 iteration: " << diff.count() / iter << " s" << endl;
     cout << "IPS: " << iter / diff.count() << endl;
 

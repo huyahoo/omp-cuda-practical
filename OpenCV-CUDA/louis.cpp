@@ -5,17 +5,18 @@
 
 using namespace std;
 
-void createAnaglyphCUDA ( cv::cuda::GpuMat& d_Limg, cv::cuda::GpuMat& d_Rimg, int method, cv::cuda::GpuMat& d_result, int block_x, int block_y);
+void createDenoiseCUDA(cv::cuda::GpuMat &d_Limg, cv::cuda::GpuMat &d_Rimg, cv::cuda::GpuMat &d_result, int neighborhood, float ratio, int block_x, int block_y);
 
 int main(int argc, char** argv) {
-    if (argc < 2) {
+    if (argc < 3) {
         std::cout << "Usage: " << argv[0] << " <method>" << std::endl;
         return -1;
     }
 
-    int method = std::stoi(argv[1]);
+    int neighborhood = std::stoi(argv[1]);
+    float ratio = std::stof(argv[2]);
 
-    cv::Mat image = cv::imread("garden-stereo.jpg");
+    cv::Mat image = cv::imread("painting.tif");
     cv::Mat leftImage = image(cv::Rect(0, 0, image.cols / 2, image.rows));
     cv::Mat rightImage = image(cv::Rect(image.cols / 2, 0, image.cols / 2, image.rows));
 
@@ -24,37 +25,32 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    cv::Mat anaglyphImage;
+    cv::Mat DenoisedImage;
 
     cv::cuda::GpuMat d_Limg, d_Rimg, d_result;
 
     // for (int block_x = 1; block_x <= 32; block_x *= 2){
         // for (int block_y = 1; block_y <= 32; block_y *= 2){
             auto begin = chrono::high_resolution_clock::now();
-            for (int i = 0; i < 100; i++){
-                d_Limg.upload(leftImage);
-                d_Rimg.upload(rightImage);
-                d_result.upload(leftImage);
 
-                createAnaglyphCUDA(d_Limg, d_Rimg, method, d_result, 32, 8);
+            d_Limg.upload(leftImage);
+            d_Rimg.upload(rightImage);
+            d_result.upload(image);
 
-                d_result.download(anaglyphImage);
+            createDenoiseCUDA(d_Limg, d_Rimg, d_result, neighborhood, ratio, 32, 8);
 
-            }
+            d_result.download(DenoisedImage);
+
             auto end = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> diff = end-begin;
             std::cout << "Time: " << diff.count() << " s" << std::endl;
-            std::cout << "Time per frame: " << diff.count()/100 << " s" << std::endl;
-            std::cout << "IPS: " << 100/diff.count() << std::endl;
             // std::cout << "Block_x: " << block_x << " Block_y: " << block_y << " Time: " << diff.count() << " s" << std::endl;
         // }
     // }
 
-    
+    cv::imshow("Denoised Image", DenoisedImage);
 
-    cv::imshow("Anaglyph Image", anaglyphImage);
-
-    cv::waitKey();
+    cv::waitKey(0);
 
     return 0;
 }

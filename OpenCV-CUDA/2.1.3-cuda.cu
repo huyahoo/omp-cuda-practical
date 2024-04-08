@@ -85,20 +85,20 @@ __global__ void calculateAndDenoiseKernel(const uchar3* src, uchar3* dst, int co
     }
 }
 
+int divUp(int a, int b)
+{
+    return ((a % b) != 0) ? (a / b + 1) : (a / b);
+}
+
+
 void processCUDA(const cv::cuda::GpuMat& src, cv::cuda::GpuMat& dst, int neighborhoodSize, double factorRatio) {
     dim3 block(32, 8);
-    dim3 grid((src.cols + block.x - 1) / block.x, (src.rows + block.y - 1) / block.y);
+    dim3 grid(divUp(src.cols, block.x), divUp(src.rows, block.y));
 
     calculateAndDenoiseKernel<<<grid, block>>>(
         reinterpret_cast<uchar3*>(const_cast<unsigned char*>(src.ptr())), 
         reinterpret_cast<uchar3*>(dst.ptr()), 
         src.cols, src.rows, neighborhoodSize, factorRatio);
-    cudaDeviceSynchronize();
-    cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        cerr << "CUDA error in calculateAndDenoiseKernel: " << cudaGetErrorString(err) << endl;
-        return;
-    }
 }
 
 int main(int argc, char** argv) {
@@ -107,8 +107,8 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    cv::Mat stereo_image = cv::imread(argv[1], cv::IMREAD_COLOR);
-    if (stereo_image.empty()) {
+    cv::Mat input_img = cv::imread(argv[1], cv::IMREAD_COLOR);
+    if (input_img.empty()) {
         cerr << "Error: Unable to load image." << endl;
         return -1;
     }
@@ -133,10 +133,9 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    cv::cuda::GpuMat d_stereo_image;
-    d_stereo_image.upload(stereo_image);
+    cv::Mat denoised_image;
 
-    cv::cuda::GpuMat d_denoised_image(d_stereo_image.size(), d_stereo_image.type());
+    cv::cuda::GpuMat d_input_img, d_denoised_image;
 
     // Start the timer
     auto begin = chrono::high_resolution_clock::now();
@@ -145,7 +144,10 @@ int main(int argc, char** argv) {
     const int iter = 5;
 
     for (int it = 0; it < iter; it++) {
-        processCUDA(d_stereo_image, d_denoised_image, neighborhoodSize, factorRatio);
+        d_input_img.upload(input_img);
+        d_denoised_image.upload(input_img);
+        processCUDA(d_input_img, d_denoised_image, neighborhoodSize, factorRatio);
+        d_denoised_image.download(denoised_image);
     }
 
     // Stop the timer
@@ -154,22 +156,20 @@ int main(int argc, char** argv) {
     // Calculate the time difference
     chrono::duration<double> diff = end - begin;
 
-    // Download the result back to CPU
-    cv::Mat denoised_image(stereo_image.size(), stereo_image.type());
-    d_denoised_image.download(denoised_image);
-
     // Display performance metrics
-    cout << "Total time: " << diff.count() << " s" << endl;
+    cout << "Total time for " << iter << " iteration: " << diff.count() << " s" << endl;
     cout << "Time for 1 iteration: " << diff.count() / iter << " s" << endl;
     cout << "IPS: " << iter / diff.count() << endl;
 
     // Display the original and processed images
-    cv::imshow("Original Image", stereo_image);
+    cv::imshow("Original Image", input_img);
     cv::imshow("Denoised Image", denoised_image);
-    cv::waitKey();
 
-    d_stereo_image.release();
-    d_denoised_image.release();
+    // Save the anaglyph image
+    std::string filename =  "output/2.1.3/denoised.jpg";
+    cv::imwrite(filename, denoised_image);
+
+    cv::waitKey();
 
     return 0;
 }

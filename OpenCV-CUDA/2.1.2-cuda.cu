@@ -142,7 +142,7 @@ void processCUDA(const cv::cuda::GpuMat& d_left_image,
                 int kernelSize,
                 int anaglyph_type,
                 double* gaussKernel) {
-    const dim3 block(64, 16);
+    const dim3 block(32, 8);
     const dim3 grid(divUp(d_right_image.cols, block.x), divUp(d_right_image.rows, block.y));
 
     // Apply Gaussian blur kernel
@@ -217,8 +217,6 @@ int main( int argc, char** argv )
 
     double* gaussKernel;
     cudaMalloc(&gaussKernel, kernelSize * kernelSize * sizeof(double));
-
-    // Initialize the memory to 0
     cudaMemset(gaussKernel, 0, kernelSize * kernelSize * sizeof(double));
 
     dim3 blockSize(16, 16);
@@ -226,13 +224,9 @@ int main( int argc, char** argv )
 
     generateGaussianKernelKernel<<<gridSize, blockSize>>>(gaussKernel, kernelSize, sigma);
 
-    // Convert input images to GPU Mat
-    cv::cuda::GpuMat d_left_image, d_right_image, d_anaglyph_image;
-    d_left_image.upload(left_image);
-    d_right_image.upload(right_image);
+    cv::Mat anaglyph_image;
 
-    // Allocate memory for the anaglyph image on GPU
-    d_anaglyph_image.create(left_image.rows, left_image.cols, CV_8UC3);
+    cv::cuda::GpuMat d_left_image, d_right_image, d_anaglyph_image;
 
     // Start the timer
     auto begin = chrono::high_resolution_clock::now();
@@ -242,15 +236,15 @@ int main( int argc, char** argv )
 
     // Perform the operation iter times
     for (int it = 0; it < iter; it++) {
+        d_left_image.upload(left_image);
+        d_right_image.upload(right_image);
+        d_anaglyph_image.upload(left_image);
         processCUDA(d_left_image, d_right_image, d_anaglyph_image, kernelSize, anaglyph_type, gaussKernel);
+        d_anaglyph_image.download(anaglyph_image);
     }
 
     // Stop the timer
     auto end = chrono::high_resolution_clock::now();
-
-    // Download the result from the GPU
-    cv::Mat anaglyph_image(left_image.size(), CV_8UC3);
-    d_anaglyph_image.download(anaglyph_image);
 
     // Calculate the time difference
     chrono::duration<double> diff = end - begin;
@@ -259,14 +253,14 @@ int main( int argc, char** argv )
     cv::imshow("Input Image", stereo_image);
 
     // Display the output image
-    cv::imshow("Gaussian +" + anaglyph_name + " Anaglyph Image", anaglyph_image);
+    cv::imshow("Gaussian + " + anaglyph_name + " Anaglyph Image", anaglyph_image);
 
     // Save the anaglyph image
-    // std::string filename =  "output/2.1.2/" + anaglyph_name + "Anaglyph-blurred.jpg";
-    // cv::imwrite(filename, anaglyph_image);
+    std::string filename =  "output/2.1.2/" + anaglyph_name + "Anaglyph-blurred.jpg";
+    cv::imwrite(filename, anaglyph_image);
 
     // Display performance metrics
-    cout << "Total time: " << diff.count() << " s" << endl;
+    cout << "Total time for " << iter << " iteration: " << diff.count() << " s" << endl;
     cout << "Time for 1 iteration: " << diff.count() / iter << " s" << endl;
     cout << "IPS: " << iter / diff.count() << endl;
 
