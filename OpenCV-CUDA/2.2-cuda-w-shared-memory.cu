@@ -22,6 +22,11 @@ enum AnaglyphType {
     OPTIMIZED
 };
 
+// Shared memory size for the block
+#define BLOCK_SIZE 16
+#define MAX_KERNEL_SIZE 21
+#define SHARED_MEM_SIZE (BLOCK_SIZE + MAX_KERNEL_SIZE - 1)
+
 __global__ void generateGaussianKernelKernel(double* gaussKernel, int kernelSize, double sigma) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -42,21 +47,46 @@ __global__ void applyGaussianBlurKernel(const cv::cuda::PtrStepSz<uchar3> src, c
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
 
+    // Shared memory for caching pixels
+    __shared__ uchar3 sharedMem[SHARED_MEM_SIZE][SHARED_MEM_SIZE];
+
+    // Load pixel data into shared memory
+    int sharedX = threadIdx.x + kernelSize / 2;
+    int sharedY = threadIdx.y + kernelSize / 2;
+
+    // Load the neighboring pixels as well
+    if (x < src.cols && y < src.rows) {
+        sharedMem[sharedY][sharedX] = src(y, x);
+        for (int i = 0; i < kernelSize / 2; ++i) {
+            if (threadIdx.x == i && x > i) {
+                sharedMem[sharedY][sharedX - i - 1] = src(y, x - i - 1);
+            }
+            if (threadIdx.x == blockDim.x - 1 - i && x < src.cols - 1 - i) {
+                sharedMem[sharedY][sharedX + i + 1] = src(y, x + i + 1);
+            }
+            if (threadIdx.y == i && y > i) {
+                sharedMem[sharedY - i - 1][sharedX] = src(y - i - 1, x);
+            }
+            if (threadIdx.y == blockDim.y - 1 - i && y < src.rows - 1 - i) {
+                sharedMem[sharedY + i + 1][sharedX] = src(y + i + 1, x);
+            }
+        }
+    }
+    __syncthreads();
+
     if (x < src.cols && y < src.rows) {
         int halfKernelSize = kernelSize / 2;
 
         double sum[3] = {0.0, 0.0, 0.0};
         double gaussianTotal = 0.0;
 
+        // Apply Gaussian filter using shared memory
         for (int i = -halfKernelSize; i <= halfKernelSize; ++i) {
             for (int j = -halfKernelSize; j <= halfKernelSize; ++j) {
-                int row = min(max(y + i, 0), src.rows - 1);
-                int col = min(max(x + j, 0), src.cols - 1);
-
+                uchar3 pixel = sharedMem[sharedY + i][sharedX + j];
                 double gaussianVal = gaussKernel[(i + halfKernelSize) * kernelSize + (j + halfKernelSize)];
                 gaussianTotal += gaussianVal;
 
-                uchar3 pixel = src(row, col);
                 double pixelVec[3] = {static_cast<double>(pixel.x), static_cast<double>(pixel.y), static_cast<double>(pixel.z)};
                 for (int k = 0; k < 3; ++k) {
                     sum[k] += pixelVec[k] * gaussianVal;
@@ -152,12 +182,12 @@ void processCUDA(const cv::cuda::GpuMat& d_left_image,
                 int kernelSize,
                 int anaglyph_type,
                 double* gaussKernel) {
-    const dim3 block(32, 8);
+    const dim3 block(BLOCK_SIZE, BLOCK_SIZE);
     const dim3 grid(divUp(d_right_image.cols, block.x), divUp(d_right_image.rows, block.y));
     int rows = d_anaglyph_image.rows;
     int cols = d_anaglyph_image.cols;
 
-    // Apply Gaussian blur kernel
+    // Apply Gaussian blur kernel with shared memory
     applyGaussianBlurKernel<<<grid, block>>>(d_left_image, d_left_image, kernelSize, gaussKernel);
     applyGaussianBlurKernel<<<grid, block>>>(d_right_image, d_right_image, kernelSize, gaussKernel);
 
