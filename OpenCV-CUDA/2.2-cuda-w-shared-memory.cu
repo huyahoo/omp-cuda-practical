@@ -271,7 +271,7 @@ int main( int argc, char** argv )
     auto begin = chrono::high_resolution_clock::now();
 
     // Number of iterations
-    const int iter = 10000;
+    const int iter = 50;
 
     // Perform the operation iter times
     for (int it = 0; it < iter; it++) {

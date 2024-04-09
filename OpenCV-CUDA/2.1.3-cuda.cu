@@ -141,7 +141,7 @@ int main(int argc, char** argv) {
     auto begin = chrono::high_resolution_clock::now();
 
     // Number of iterations
-    const int iter = 10000;
+    const int iter = 100000;
 
     for (int it = 0; it < iter; it++) {
         d_input_img.upload(input_img);
