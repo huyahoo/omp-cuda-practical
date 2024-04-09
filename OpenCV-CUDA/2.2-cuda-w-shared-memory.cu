@@ -22,18 +22,18 @@ enum AnaglyphType {
 #define SHARED_MEM_SIZE (BLOCK_SIZE + MAX_KERNEL_SIZE - 1)
 
 __global__ void generateGaussianKernelKernel(double* gaussKernel, int kernelSize, double sigma) {
-    const int x = blockIdx.x * blockDim.x + threadIdx.x;
-    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    const int dst_x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int dst_y = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if (x < kernelSize && y < kernelSize) {
+    if (dst_x < kernelSize && dst_y < kernelSize) {
         int halfKernelSize = kernelSize / 2;
         const double PI = 3.14159265358979323846;
 
         double lp = 1.0 / (2.0 * PI * sigma * sigma);
         double rp = 1.0 / (2.0 * sigma * sigma);
 
-        double gaussianVal = lp * exp(-((x - halfKernelSize) * (x - halfKernelSize) + (y - halfKernelSize) * (y - halfKernelSize)) * rp);
-        gaussKernel[y * kernelSize + x] = gaussianVal;
+        double gaussianVal = lp * exp(-((dst_x - halfKernelSize) * (dst_x - halfKernelSize) + (dst_y - halfKernelSize) * (dst_y - halfKernelSize)) * rp);
+        gaussKernel[dst_y * kernelSize + dst_x] = gaussianVal;
     }
 }
 
@@ -43,8 +43,10 @@ __global__ void applyGaussianBlurKernel(const cv::cuda::PtrStepSz<uchar3> src, c
 
     __shared__ uchar3 sharedMem[SHARED_MEM_SIZE][SHARED_MEM_SIZE];
 
-    int sharedX = threadIdx.x + kernelSize / 2;
-    int sharedY = threadIdx.y + kernelSize / 2;
+    int halfKernelSize = kernelSize / 2;
+
+    int sharedX = threadIdx.x + halfKernelSize;
+    int sharedY = threadIdx.y + halfKernelSize;
 
     if (dst_x < src.cols && dst_y < src.rows) {
         sharedMem[sharedY][sharedX] = src(dst_y, dst_x);
@@ -52,26 +54,25 @@ __global__ void applyGaussianBlurKernel(const cv::cuda::PtrStepSz<uchar3> src, c
         sharedMem[sharedY][sharedX] = make_uchar3(0, 0, 0);
     }
 
-    if (threadIdx.x < kernelSize / 2) {
-        sharedMem[sharedY][sharedX - kernelSize / 2] = src(dst_y, dst_x - kernelSize / 2);
+    if (threadIdx.x < halfKernelSize) {
+        sharedMem[sharedY][sharedX - halfKernelSize] = src(dst_y, dst_x - halfKernelSize);
         sharedMem[sharedY][sharedX + blockDim.x] = src(dst_y, dst_x + blockDim.x);
     }
 
-    if (threadIdx.y < kernelSize / 2) {
-        sharedMem[sharedY - kernelSize / 2][sharedX] = src(dst_y - kernelSize / 2, dst_x);
+    if (threadIdx.y < halfKernelSize) {
+        sharedMem[sharedY - halfKernelSize][sharedX] = src(dst_y - halfKernelSize, dst_x);
         sharedMem[sharedY + blockDim.y][sharedX] = src(dst_y + blockDim.y, dst_x);
     }
 
-    if (threadIdx.y < kernelSize/2 && threadIdx.x < kernelSize/2) {
-        sharedMem[sharedY - kernelSize/2][sharedX - kernelSize/2] = src(dst_y - kernelSize/2, dst_x - kernelSize/2);
-        sharedMem[sharedY - kernelSize/2][sharedX + blockDim.x] = src(dst_y - kernelSize/2, dst_x + blockDim.x);
-        sharedMem[sharedY + blockDim.y][sharedX - kernelSize/2] = src(dst_y + blockDim.y, dst_x - kernelSize/2);
+    if (threadIdx.y < halfKernelSize && threadIdx.x < halfKernelSize) {
+        sharedMem[sharedY - halfKernelSize][sharedX - halfKernelSize] = src(dst_y - halfKernelSize, dst_x - halfKernelSize);
+        sharedMem[sharedY - halfKernelSize][sharedX + blockDim.x] = src(dst_y - halfKernelSize, dst_x + blockDim.x);
+        sharedMem[sharedY + blockDim.y][sharedX - halfKernelSize] = src(dst_y + blockDim.y, dst_x - halfKernelSize);
         sharedMem[sharedY + blockDim.y][sharedX + blockDim.x] = src(dst_y + blockDim.y, dst_x + blockDim.x);
     }
     __syncthreads();
 
     if (dst_x < src.cols && dst_y < src.rows) {
-        int halfKernelSize = kernelSize / 2;
         double sum[3] = {0.0, 0.0, 0.0};
         double gaussianTotal = 0.0;
 
@@ -99,17 +100,17 @@ __global__ void processKernel(const cv::cuda::PtrStepSz<uchar3> left_image,
                                      const cv::cuda::PtrStepSz<uchar3> right_image,
                                      cv::cuda::PtrStepSz<uchar3> anaglyph_image,
                                      int anaglyph_type) {
-    const int x = blockIdx.x * blockDim.x + threadIdx.x;
-    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    const int dst_x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int dst_y = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if (x < left_image.cols && y < left_image.rows) {
-        uchar3 left_pixel = left_image(y, x);
-        uchar3 right_pixel = right_image(y, x);
+    if (dst_x < left_image.cols && dst_y < left_image.rows) {
+        uchar3 left_pixel = left_image(dst_y, dst_x);
+        uchar3 right_pixel = right_image(dst_y, dst_x);
 
         switch (anaglyph_type) {
             case TRUE:
                 // True Anaglyphs
-                anaglyph_image(y, x) = make_uchar3(
+                anaglyph_image(dst_y, dst_x) = make_uchar3(
                     0.299f * right_pixel.z + 0.578f * right_pixel.y + 0.114f * right_pixel.x,
                     0,
                     0.299f * left_pixel.z + 0.578f * left_pixel.y + 0.114f * left_pixel.x
@@ -117,7 +118,7 @@ __global__ void processKernel(const cv::cuda::PtrStepSz<uchar3> left_image,
                 break;
             case GRAY:
                 // Gray Anaglyphs
-                anaglyph_image(y, x) = make_uchar3(
+                anaglyph_image(dst_y, dst_x) = make_uchar3(
                     0.299f * right_pixel.x + 0.578f * right_pixel.y + 0.114f * right_pixel.z,
                     0.299f * right_pixel.x + 0.578f * right_pixel.y + 0.114f * right_pixel.z,
                     0.299f * left_pixel.x + 0.578f * left_pixel.y + 0.114f * left_pixel.z
@@ -125,7 +126,7 @@ __global__ void processKernel(const cv::cuda::PtrStepSz<uchar3> left_image,
                 break;
             case COLOR:
                 // Color Anaglyphs
-                anaglyph_image(y, x) = make_uchar3(
+                anaglyph_image(dst_y, dst_x) = make_uchar3(
                     right_pixel.x,
                     right_pixel.y,
                     left_pixel.z
@@ -133,7 +134,7 @@ __global__ void processKernel(const cv::cuda::PtrStepSz<uchar3> left_image,
                 break;
             case HALFCOLOR:
                 // Half Color Anaglyphs
-                anaglyph_image(y, x) = make_uchar3(
+                anaglyph_image(dst_y, dst_x) = make_uchar3(
                     0.299f * right_pixel.x + 0.578f * right_pixel.y + 0.114f * right_pixel.z,
                     right_pixel.y,
                     left_pixel.z
@@ -141,7 +142,7 @@ __global__ void processKernel(const cv::cuda::PtrStepSz<uchar3> left_image,
                 break;
             case OPTIMIZED:
                 // Optimized Anaglyphs
-                anaglyph_image(y, x) = make_uchar3(
+                anaglyph_image(dst_y, dst_x) = make_uchar3(
                     0.7f * right_pixel.y + 0.3f * right_pixel.x,
                     right_pixel.y,
                     left_pixel.z
@@ -149,7 +150,7 @@ __global__ void processKernel(const cv::cuda::PtrStepSz<uchar3> left_image,
                 break;
             default:
                 // No Anaglyphs
-                anaglyph_image(y, x) = left_pixel;
+                anaglyph_image(dst_y, dst_x) = left_pixel;
         }
     }
 }

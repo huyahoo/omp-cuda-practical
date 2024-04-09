@@ -60,7 +60,7 @@ int main( int argc, char** argv )
     auto begin = chrono::high_resolution_clock::now();
 
     // Number of iterations
-    const int iter = 500;
+    const int iter = 5;
 
     // Perform the operation iter times
     for (int it = 0; it < iter; it++) {
@@ -144,8 +144,8 @@ int main( int argc, char** argv )
     cv::imwrite(filename, anaglyph_image);
 
     // Display performance metrics
-    cout << "Total time: " << diff.count() << " s" << endl;
     cout << "Total time for " << iter << " iterations: " << diff.count() << " s" << endl;
+    cout << "Time for 1 iteration: " << diff.count() / iter << " s" << endl;
     cout << "IPS: " << iter / diff.count() << endl;
 
     // Wait for a key press before closing the windows

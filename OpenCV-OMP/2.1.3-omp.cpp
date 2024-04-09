@@ -66,19 +66,40 @@ int main( int argc, char** argv )
         cerr << "Error: Unable to load image." << endl;
         return -1;
     }
-    // Neighborhood size for covariance matrix
-    int neighborhoodSize = atoi(argv[3]);
-    // Factor ratio applied to determine the Gaussian kernel size
-    double factorRatio = atof(argv[4]);
+
+    int neighborhoodSize = atoi(argv[2]);
+    double factorRatio = atof(argv[3]);
+
+    if (!factorRatio || !neighborhoodSize) {
+        cerr << "Error: Invalid input." << endl;
+        cerr << "Error: Neighborhood size must be an odd number." << endl;
+        cerr << "Error: Factor ratio must be greater than 0." << endl;
+        return -1;
+    }
+    
+    if (neighborhoodSize % 2 == 0) {
+        cerr << "Error: Neighborhood size must be an odd number." << endl;
+        return -1;
+    }
+
+    if (factorRatio <= 0) {
+        cerr << "Error: Factor ratio must be greater than 0." << endl;
+        return -1;
+    }
+
+    // Apply denoising
+    cv::Mat denoisedImage;
 
     // Start the timer
     auto begin = chrono::high_resolution_clock::now();
 
     // Number of iterations
-    const int iter = 500;
+    const int iter = 2500;
 
-    // Apply denoising
-    cv::Mat denoisedImage = denoiseByCovariance(stereo_image, neighborhoodSize, factorRatio);
+    // Perform the operation iter times
+    for (int it = 0; it < iter; it++) {
+        denoisedImage = denoiseByCovariance(stereo_image, neighborhoodSize, factorRatio);
+    }
 
     // Stop the timer
     auto end = std::chrono::high_resolution_clock::now();
