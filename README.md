@@ -1,6 +1,6 @@
-# practical-work-2
+# OMP and CUDA practical programming
 
-## Image Processing by OPEN-OMP
+## Image Processing by OPEN-MP
 The results will be saved in the folder named as "output".
 
 Move to main directory:
